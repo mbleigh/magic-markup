@@ -41,6 +41,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { TextAnnotator, type TextAnnotation } from './text-annotator';
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
 const BRUSH_SIZES: Record<BrushSize, number> = {
@@ -66,9 +67,12 @@ export function MagicMarkupEditor() {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isElementUploadOpen, setIsElementUploadOpen] = useState(false);
+  const [isAnnotating, setIsAnnotating] = useState(false);
+  const [annotationPosition, setAnnotationPosition] = useState({ x: 0, y: 0 });
 
   // Canvas interaction refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const isDrawing = useRef(false);
   const lastPosition = useRef<{ x: number; y: number } | null>(null);
   const history = useRef<any[]>([]);
@@ -231,23 +235,42 @@ export function MagicMarkupEditor() {
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     
+    if (tool === 'annotate') {
+      setAnnotationPosition({ x: e.clientX, y: e.clientY });
+      setIsAnnotating(true);
+      return;
+    }
+    
     isDrawing.current = true;
     lastPosition.current = { x, y };
 
     if (tool === 'highlight') {
         setHighlights(prev => [...prev, { id: Date.now().toString(), color, points: [{x, y}], strokeWidth: BRUSH_SIZES[brushSize] }]);
-    } else if (tool === 'annotate') {
-        const text = prompt('Enter annotation text:');
-        if (text) {
-            setAnnotations(prev => [...prev, { id: Date.now().toString(), color, text, position: {x, y}, fontSize: BRUSH_SIZES[brushSize] * 2 }]);
-            saveHistory();
-        }
-        isDrawing.current = false;
     } else if (tool === 'erase') {
         erase(x, y);
     }
   };
 
+  const handleSaveAnnotation = (text: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (annotationPosition.x - rect.left) * (canvas.width / rect.width);
+    const y = (annotationPosition.y - rect.top) * (canvas.height / rect.height);
+
+    if (text) {
+      setAnnotations(prev => [...prev, {
+        id: Date.now().toString(),
+        color,
+        text,
+        position: { x, y },
+        fontSize: BRUSH_SIZES[brushSize] * 2
+      }]);
+      saveHistory();
+    }
+    setIsAnnotating(false);
+  };
+  
   const erase = (x: number, y: number) => {
     const eraseRadius = BRUSH_SIZES[brushSize];
     let changed = false;
@@ -435,6 +458,11 @@ export function MagicMarkupEditor() {
     const items = event.clipboardData?.items;
     if (!items) return;
 
+    // Do not interfere with text input pasting
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') === -1) continue;
 
@@ -500,7 +528,7 @@ export function MagicMarkupEditor() {
         {/* Center - Editor */}
         <main className="flex flex-col items-center justify-center bg-background/50 p-4">
           {baseImage ? (
-             <div className="relative w-full h-full flex items-center justify-center">
+             <div ref={canvasContainerRef} className="relative w-full h-full flex items-center justify-center">
                  <Image
                     src={baseImage}
                     alt="Base image"
@@ -524,6 +552,16 @@ export function MagicMarkupEditor() {
                       height: 'auto',
                     }}
                  />
+                 {isAnnotating && (
+                   <TextAnnotator
+                    initialPosition={annotationPosition}
+                    onSave={handleSaveAnnotation}
+                    onCancel={() => setIsAnnotating(false)}
+                    color={color}
+                    fontSize={BRUSH_SIZES[brushSize] * 2}
+                    containerRef={canvasContainerRef}
+                   />
+                 )}
             </div>
           ) : (
             <div className="flex w-full h-full max-w-2xl max-h-[70vh] items-center justify-center rounded-2xl border-2 border-dashed border-border">
