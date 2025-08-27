@@ -899,22 +899,20 @@ export function MagicMarkupEditor() {
         {/* Right Sidebar - Tools & Prompt */}
         <aside className="flex flex-col gap-4 border-l bg-card p-4">
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">Tools</CardTitle>
+                     <div className="flex items-center gap-1">
+                        <IconButton icon={Undo2} tooltip="Undo" onClick={undo} />
+                        <IconButton icon={Redo2} tooltip="Redo" onClick={redo} />
+                        <IconButton icon={Trash2} tooltip="Clear All" onClick={handleClear} />
+                    </div>
                 </CardHeader>
                 <CardContent className="grid gap-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                          <IconButton icon={MousePointer2} tooltip="Select" isActive={tool === 'select'} onClick={() => setTool('select')} />
-                          <IconButton icon={Brush} tooltip="Highlight" isActive={tool === 'highlight'} onClick={() => setTool('highlight')} />
-                          <IconButton icon={Type} tooltip="Annotate" isActive={tool === 'annotate'} onClick={() => setTool('annotate')} />
-                          <IconButton icon={Eraser} tooltip="Erase" isActive={tool === 'erase'} onClick={() => setTool('erase')} />
-                      </div>
-                      <div className="flex items-center gap-1">
-                          <IconButton icon={Undo2} tooltip="Undo" onClick={undo} />
-                          <IconButton icon={Redo2} tooltip="Redo" onClick={redo} />
-                          <IconButton icon={Trash2} tooltip="Clear All" onClick={handleClear} />
-                      </div>
+                    <div className="flex items-center gap-1">
+                        <IconButton icon={MousePointer2} tooltip="Select" isActive={tool === 'select'} onClick={() => setTool('select')} />
+                        <IconButton icon={Brush} tooltip="Highlight" isActive={tool === 'highlight'} onClick={() => setTool('highlight')} />
+                        <IconButton icon={Type} tooltip="Annotate" isActive={tool === 'annotate'} onClick={() => setTool('annotate')} />
+                        <IconButton icon={Eraser} tooltip="Erase" isActive={tool === 'erase'} onClick={() => setTool('erase')} />
                     </div>
                     <Separator />
                      <div className="grid gap-2">
