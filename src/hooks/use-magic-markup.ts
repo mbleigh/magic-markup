@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { type Tool, type BrushSize, type CanvasObject, type Annotation, type Highlight, type SessionHistoryItem } from '@/lib/types';
 import { resizeImage, dataUrlToBlob } from '@/lib/canvas-utils';
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
-import { reducer, initialState, ActionType } from '@/lib/state';
+import { reducer, initialState, Action, ActionPayloads } from '@/lib/state';
 
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
@@ -65,19 +65,23 @@ export function useMagicMarkup() {
   const elementFileInputRef = useRef<HTMLInputElement>(null);
   
   // -- ACTION DISPATCHERS --
-  const setTool = (tool: Tool) => dispatch({ type: ActionType.SET_TOOL, payload: tool });
-  const setColor = (color: string) => dispatch({ type: ActionType.SET_COLOR, payload: color });
-  const setBrushSize = (brushSize: BrushSize) => dispatch({ type: ActionType.SET_BRUSH_SIZE, payload: brushSize });
-  const setCustomPrompt = (prompt: string) => dispatch({ type: ActionType.SET_CUSTOM_PROMPT, payload: prompt });
-  const setGeneratedImage = (image: string | null) => dispatch({ type: ActionType.SET_GENERATED_IMAGE, payload: image });
-  const setIsElementUploadOpen = (isOpen: boolean) => dispatch({ type: ActionType.SET_IS_ELEMENT_UPLOAD_OPEN, payload: isOpen });
-  const setEditingAnnotation = (annotation: Annotation | null) => dispatch({ type: ActionType.SET_EDITING_ANNOTATION, payload: annotation });
-  const setConfirmingNewImage = (image: string | null) => dispatch({ type: ActionType.SET_CONFIRMING_NEW_IMAGE, payload: image });
-  const setIsCameraRollOpen = (isOpen: boolean) => dispatch({ type: ActionType.SET_IS_CAMERA_ROLL_OPEN, payload: isOpen });
-  const setIsApiKeyDialogOpen = (isOpen: boolean) => dispatch({ type: ActionType.SET_IS_API_KEY_DIALOG_OPEN, payload: isOpen });
-  const setElementImages = (images: (File | null)[]) => dispatch({ type: ActionType.SET_ELEMENT_IMAGES, payload: images });
-  const setElementImageUrls = (urls: (string | null)[]) => dispatch({ type: ActionType.SET_ELEMENT_IMAGE_URLS, payload: urls });
-  const setElementNames = (names: string[]) => dispatch({ type: ActionType.SET_ELEMENT_NAMES, payload: names });
+  const dispatchAction = <T extends keyof ActionPayloads>(type: T, payload: ActionPayloads[T]) => {
+      dispatch({ type, payload } as Action);
+  }
+
+  const setTool = (tool: Tool) => dispatchAction('SET_TOOL', tool);
+  const setColor = (color: string) => dispatchAction('SET_COLOR', color);
+  const setBrushSize = (brushSize: BrushSize) => dispatchAction('SET_BRUSH_SIZE', brushSize);
+  const setCustomPrompt = (prompt: string) => dispatchAction('SET_CUSTOM_PROMPT', prompt);
+  const setGeneratedImage = (image: string | null) => dispatchAction('SET_GENERATED_IMAGE', image);
+  const setIsElementUploadOpen = (isOpen: boolean) => dispatchAction('SET_IS_ELEMENT_UPLOAD_OPEN', isOpen);
+  const setEditingAnnotation = (annotation: Annotation | null) => dispatchAction('SET_EDITING_ANNOTATION', annotation);
+  const setConfirmingNewImage = (image: string | null) => dispatchAction('SET_CONFIRMING_NEW_IMAGE', image);
+  const setIsCameraRollOpen = (isOpen: boolean) => dispatchAction('SET_IS_CAMERA_ROLL_OPEN', isOpen);
+  const setIsApiKeyDialogOpen = (isOpen: boolean) => dispatchAction('SET_IS_API_KEY_DIALOG_OPEN', isOpen);
+  const setElementImages = (images: (File | null)[]) => dispatchAction('SET_ELEMENT_IMAGES', images);
+  const setElementImageUrls = (urls: (string | null)[]) => dispatchAction('SET_ELEMENT_IMAGE_URLS', urls);
+  const setElementNames = (names: string[]) => dispatchAction('SET_ELEMENT_NAMES', names);
 
   // -- SESSION & HISTORY MANAGEMENT --
   
@@ -95,12 +99,12 @@ export function useMagicMarkup() {
   }, []);
   
   const loadStateFromHistoryItem = (item: SessionHistoryItem | null) => {
-    dispatch({ type: ActionType.LOAD_STATE_FROM_HISTORY, payload: item });
+    dispatchAction('LOAD_STATE_FROM_HISTORY', item);
   }
 
   const startNewSession = useCallback((newBaseImage: string) => {
     const newItem = createNewHistoryItem(newBaseImage);
-    dispatch({ type: ActionType.START_NEW_SESSION, payload: newItem });
+    dispatchAction('START_NEW_SESSION', newItem);
   }, [createNewHistoryItem]);
   
   const handleConfirmNewImage = (confirmed: boolean) => {
@@ -195,19 +199,19 @@ export function useMagicMarkup() {
   const undo = useCallback(() => {
     if (historyPointer.current > 0) {
       historyPointer.current--;
-      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: history.current[historyPointer.current]});
+      dispatchAction('SET_CANVAS_OBJECTS', history.current[historyPointer.current]);
     }
   }, []);
 
   const redo = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
       historyPointer.current++;
-      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: history.current[historyPointer.current]});
+      dispatchAction('SET_CANVAS_OBJECTS', history.current[historyPointer.current]);
     }
   }, []);
 
   const handleClear = () => {
-    dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: []});
+    dispatchAction('SET_CANVAS_OBJECTS', []);
     history.current = [[]];
     historyPointer.current = 0;
   };
@@ -321,17 +325,17 @@ export function useMagicMarkup() {
 
         if (doubleClick && hitObject?.type === 'annotation') {
           setEditingAnnotation(hitObject as Annotation);
-          dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.map(obj => obj.id === hitObject.id ? obj : { ...obj, selected: false }) });
+          dispatchAction('SET_CANVAS_OBJECTS', canvasObjects.map(obj => obj.id === hitObject.id ? obj : { ...obj, selected: false }));
           return;
         }
         
-        dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.map(obj => {
+        dispatchAction('SET_CANVAS_OBJECTS', canvasObjects.map(obj => {
           const isSelected = obj.id === hitObject?.id;
           if (obj.selected !== isSelected) {
               return { ...obj, selected: isSelected };
           }
           return obj;
-        })});
+        }));
 
         if (hitObject && hitObject.type === 'annotation') {
             interactionState.current = { 
@@ -353,7 +357,7 @@ export function useMagicMarkup() {
           points: [{ x, y }], 
           strokeWidth: BRUSH_SIZES[brushSize] * (canvasRef.current!.width / MAX_DIMENSION) 
         };
-        dispatch({ type: ActionType.ADD_CANVAS_OBJECT, payload: newHighlight });
+        dispatchAction('ADD_CANVAS_OBJECT', newHighlight);
     } else if (tool === 'erase') {
         erase(x, y);
     }
@@ -361,7 +365,7 @@ export function useMagicMarkup() {
 
   const handleSaveAnnotation = (text: string, id: string, newPosition?: {x: number, y: number}) => {
     if (text) {
-      dispatch({ type: ActionType.SAVE_ANNOTATION, payload: { id, text, position: newPosition, color, brushSize, canvasWidth: canvasRef.current?.width } });
+      dispatchAction('SAVE_ANNOTATION', { id, text, position: newPosition, color, brushSize, canvasWidth: canvasRef.current?.width });
       saveHistory();
     }
     setEditingAnnotation(null);
@@ -370,7 +374,7 @@ export function useMagicMarkup() {
   const erase = (x: number, y: number) => {
     const hitObject = hitTest(x, y);
     if(hitObject) {
-      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.filter(obj => obj.id !== hitObject.id) });
+      dispatchAction('SET_CANVAS_OBJECTS', canvasObjects.filter(obj => obj.id !== hitObject.id));
     }
   };
 
@@ -382,17 +386,17 @@ export function useMagicMarkup() {
 
     if (isDragging && tool === 'select') {
       const { dragOffset } = interactionState.current;
-      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.map(obj => {
+      dispatchAction('SET_CANVAS_OBJECTS', canvasObjects.map(obj => {
           if (obj.selected && obj.type === 'annotation' && dragOffset) {
               return { ...obj, position: { x: x - dragOffset.x, y: y - dragOffset.y } };
           }
           return obj;
-      })});
+      }));
       return;
     }
 
     if (tool === 'highlight' && isDrawing) {
-        dispatch({ type: ActionType.UPDATE_LAST_HIGHLIGHT_POINT, payload: {x,y} });
+        dispatchAction('UPDATE_LAST_HIGHLIGHT_POINT', {x,y});
     } else if (tool === 'erase' && isDrawing) {
         erase(x, y);
     }
@@ -434,7 +438,7 @@ export function useMagicMarkup() {
       return;
     }
 
-    dispatch({ type: ActionType.SET_IS_LOADING, payload: true });
+    dispatchAction('SET_IS_LOADING', true);
 
     try {
       let annotatedImage: string | undefined = undefined;
@@ -503,7 +507,7 @@ export function useMagicMarkup() {
         description: error.message || 'The AI could not process the image. Please try again.',
       });
     } finally {
-      dispatch({ type: ActionType.SET_IS_LOADING, payload: false });
+      dispatchAction('SET_IS_LOADING', false);
     }
   };
 
@@ -554,7 +558,7 @@ export function useMagicMarkup() {
   };
 
   const handleDeleteHistoryItem = (idToDelete: string) => {
-    dispatch({ type: ActionType.DELETE_HISTORY_ITEM, payload: idToDelete });
+    dispatchAction('DELETE_HISTORY_ITEM', idToDelete);
   };
 
   const handleNewSession = () => {
@@ -608,7 +612,7 @@ export function useMagicMarkup() {
       const hasSelection = canvasObjects.some(o => o.selected);
       if (hasSelection) {
         e.preventDefault();
-        dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.filter(o => !o.selected) });
+        dispatchAction('SET_CANVAS_OBJECTS', canvasObjects.filter(o => !o.selected));
         saveHistory();
       }
     }
@@ -622,23 +626,23 @@ export function useMagicMarkup() {
   };
 
   const handleSaveApiKey = (key: string) => {
-    dispatch({ type: ActionType.SET_API_KEY, payload: key });
+    dispatchAction('SET_API_KEY', key);
     localStorage.setItem(LOCAL_STORAGE_KEY_API_KEY, key);
     setIsApiKeyDialogOpen(false);
     toast({ title: "API Key saved!"});
   }
 
   useEffect(() => {
-    dispatch({ type: ActionType.SET_IS_MOUNTED, payload: true });
+    dispatchAction('SET_IS_MOUNTED', true);
     try {
       const savedKey = localStorage.getItem(LOCAL_STORAGE_KEY_API_KEY);
-      if(savedKey) dispatch({ type: ActionType.SET_API_KEY, payload: savedKey });
+      if(savedKey) dispatchAction('SET_API_KEY', savedKey);
 
       const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY_SESSION);
       if (savedSession) {
         const { history, activeId } = JSON.parse(savedSession);
         if (history && Array.isArray(history) && history.length > 0) {
-          dispatch({ type: ActionType.SET_SESSION_HISTORY, payload: history });
+          dispatchAction('SET_SESSION_HISTORY', history);
           const activeItem = history.find((item: SessionHistoryItem) => item.id === activeId) || history[history.length -1];
           loadStateFromHistoryItem(activeItem);
         }
@@ -775,5 +779,3 @@ export function useMagicMarkup() {
     EDITOR_COLORS,
   };
 }
-
-    

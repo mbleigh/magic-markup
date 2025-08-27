@@ -54,63 +54,33 @@ export const initialState: AppState = {
   isApiKeyDialogOpen: false,
 };
 
-export const ActionType = {
-  SET_IS_MOUNTED: 'SET_IS_MOUNTED',
-  SET_SESSION_HISTORY: 'SET_SESSION_HISTORY',
-  SET_ACTIVE_HISTORY_ID: 'SET_ACTIVE_HISTORY_ID',
-  SET_API_KEY: 'SET_API_KEY',
-  SET_BASE_IMAGE: 'SET_BASE_IMAGE',
-  SET_ELEMENT_IMAGES: 'SET_ELEMENT_IMAGES',
-  SET_ELEMENT_IMAGE_URLS: 'SET_ELEMENT_IMAGE_URLS',
-  SET_ELEMENT_NAMES: 'SET_ELEMENT_NAMES',
-  SET_CANVAS_OBJECTS: 'SET_CANVAS_OBJECTS',
-  ADD_CANVAS_OBJECT: 'ADD_CANVAS_OBJECT',
-  UPDATE_LAST_HIGHLIGHT_POINT: 'UPDATE_LAST_HIGHLIGHT_POINT',
-  SAVE_ANNOTATION: 'SAVE_ANNOTATION',
-  SET_TOOL: 'SET_TOOL',
-  SET_COLOR: 'SET_COLOR',
-  SET_BRUSH_SIZE: 'SET_BRUSH_SIZE',
-  SET_CUSTOM_PROMPT: 'SET_CUSTOM_PROMPT',
-  SET_IS_LOADING: 'SET_IS_LOADING',
-  SET_GENERATED_IMAGE: 'SET_GENERATED_IMAGE',
-  SET_IS_ELEMENT_UPLOAD_OPEN: 'SET_IS_ELEMENT_UPLOAD_OPEN',
-  SET_EDITING_ANNOTATION: 'SET_EDITING_ANNOTATION',
-  SET_CONFIRMING_NEW_IMAGE: 'SET_CONFIRMING_NEW_IMAGE',
-  SET_IS_CAMERA_ROLL_OPEN: 'SET_IS_CAMERA_ROLL_OPEN',
-  SET_IS_API_KEY_DIALOG_OPEN: 'SET_IS_API_KEY_DIALOG_OPEN',
-  LOAD_STATE_FROM_HISTORY: 'LOAD_STATE_FROM_HISTORY',
-  START_NEW_SESSION: 'START_NEW_SESSION',
-  DELETE_HISTORY_ITEM: 'DELETE_HISTORY_ITEM',
-} as const;
-
-
-type ActionPayloads = {
-    [ActionType.SET_IS_MOUNTED]: boolean;
-    [ActionType.SET_SESSION_HISTORY]: SessionHistoryItem[];
-    [ActionType.SET_ACTIVE_HISTORY_ID]: string | null;
-    [ActionType.SET_API_KEY]: string | null;
-    [ActionType.SET_BASE_IMAGE]: string | null;
-    [ActionType.SET_ELEMENT_IMAGES]: (File | null)[];
-    [ActionType.SET_ELEMENT_IMAGE_URLS]: (string | null)[];
-    [ActionType.SET_ELEMENT_NAMES]: string[];
-    [ActionType.SET_CANVAS_OBJECTS]: CanvasObject[];
-    [ActionType.ADD_CANVAS_OBJECT]: CanvasObject;
-    [ActionType.UPDATE_LAST_HIGHLIGHT_POINT]: { x: number; y: number };
-    [ActionType.SAVE_ANNOTATION]: { id: string, text: string, position?: { x: number, y: number }, color: string, brushSize: BrushSize, canvasWidth?: number };
-    [ActionType.SET_TOOL]: Tool;
-    [ActionType.SET_COLOR]: string;
-    [ActionType.SET_BRUSH_SIZE]: BrushSize;
-    [ActionType.SET_CUSTOM_PROMPT]: string;
-    [ActionType.SET_IS_LOADING]: boolean;
-    [ActionType.SET_GENERATED_IMAGE]: string | null;
-    [ActionType.SET_IS_ELEMENT_UPLOAD_OPEN]: boolean;
-    [ActionType.SET_EDITING_ANNOTATION]: Annotation | null;
-    [ActionType.SET_CONFIRMING_NEW_IMAGE]: string | null;
-    [ActionType.SET_IS_CAMERA_ROLL_OPEN]: boolean;
-    [ActionType.SET_IS_API_KEY_DIALOG_OPEN]: boolean;
-    [ActionType.LOAD_STATE_FROM_HISTORY]: SessionHistoryItem | null;
-    [ActionType.START_NEW_SESSION]: SessionHistoryItem;
-    [ActionType.DELETE_HISTORY_ITEM]: string;
+export type ActionPayloads = {
+  SET_IS_MOUNTED: boolean;
+  SET_SESSION_HISTORY: SessionHistoryItem[];
+  SET_ACTIVE_HISTORY_ID: string | null;
+  SET_API_KEY: string | null;
+  SET_BASE_IMAGE: string | null;
+  SET_ELEMENT_IMAGES: (File | null)[];
+  SET_ELEMENT_IMAGE_URLS: (string | null)[];
+  SET_ELEMENT_NAMES: string[];
+  SET_CANVAS_OBJECTS: CanvasObject[];
+  ADD_CANVAS_OBJECT: CanvasObject;
+  UPDATE_LAST_HIGHLIGHT_POINT: { x: number; y: number };
+  SAVE_ANNOTATION: { id: string, text: string, position?: { x: number, y: number }, color: string, brushSize: BrushSize, canvasWidth?: number };
+  SET_TOOL: Tool;
+  SET_COLOR: string;
+  SET_BRUSH_SIZE: BrushSize;
+  SET_CUSTOM_PROMPT: string;
+  SET_IS_LOADING: boolean;
+  SET_GENERATED_IMAGE: string | null;
+  SET_IS_ELEMENT_UPLOAD_OPEN: boolean;
+  SET_EDITING_ANNOTATION: Annotation | null;
+  SET_CONFIRMING_NEW_IMAGE: string | null;
+  SET_IS_CAMERA_ROLL_OPEN: boolean;
+  SET_IS_API_KEY_DIALOG_OPEN: boolean;
+  LOAD_STATE_FROM_HISTORY: SessionHistoryItem | null;
+  START_NEW_SESSION: SessionHistoryItem;
+  DELETE_HISTORY_ITEM: string;
 };
 
 export type Action = {
@@ -120,33 +90,33 @@ export type Action = {
 
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case ActionType.SET_IS_MOUNTED:
+    case 'SET_IS_MOUNTED':
       return { ...state, isMounted: action.payload };
-    case ActionType.SET_SESSION_HISTORY:
+    case 'SET_SESSION_HISTORY':
       return { ...state, sessionHistory: action.payload };
-    case ActionType.SET_ACTIVE_HISTORY_ID:
+    case 'SET_ACTIVE_HISTORY_ID':
       return { ...state, activeHistoryId: action.payload };
-    case ActionType.SET_API_KEY:
+    case 'SET_API_KEY':
       return { ...state, apiKey: action.payload };
-    case ActionType.SET_BASE_IMAGE:
+    case 'SET_BASE_IMAGE':
       return { ...state, baseImage: action.payload };
-    case ActionType.SET_ELEMENT_IMAGES:
+    case 'SET_ELEMENT_IMAGES':
       return { ...state, elementImages: action.payload };
-    case ActionType.SET_ELEMENT_IMAGE_URLS:
+    case 'SET_ELEMENT_IMAGE_URLS':
       return { ...state, elementImageUrls: action.payload };
-    case ActionType.SET_ELEMENT_NAMES:
+    case 'SET_ELEMENT_NAMES':
         return { ...state, elementNames: action.payload };
-    case ActionType.SET_CANVAS_OBJECTS:
+    case 'SET_CANVAS_OBJECTS':
       return { ...state, canvasObjects: action.payload };
-    case ActionType.ADD_CANVAS_OBJECT:
+    case 'ADD_CANVAS_OBJECT':
         return { ...state, canvasObjects: [...state.canvasObjects, action.payload] };
-    case ActionType.UPDATE_LAST_HIGHLIGHT_POINT:
+    case 'UPDATE_LAST_HIGHLIGHT_POINT':
         const lastObj = state.canvasObjects[state.canvasObjects.length - 1] as Highlight;
         if (lastObj && lastObj.type === 'highlight') {
             lastObj.points.push(action.payload);
         }
         return { ...state, canvasObjects: [...state.canvasObjects] };
-    case ActionType.SAVE_ANNOTATION:
+    case 'SAVE_ANNOTATION':
         const { id, text, position, color, brushSize, canvasWidth } = action.payload;
         const existing = state.canvasObjects.find(o => o.id === id);
         let newCanvasObjects: CanvasObject[];
@@ -165,30 +135,30 @@ export function reducer(state: AppState, action: Action): AppState {
         }
         return { ...state, canvasObjects: newCanvasObjects };
 
-    case ActionType.SET_TOOL:
+    case 'SET_TOOL':
       return { ...state, tool: action.payload };
-    case ActionType.SET_COLOR:
+    case 'SET_COLOR':
       return { ...state, color: action.payload };
-    case ActionType.SET_BRUSH_SIZE:
+    case 'SET_BRUSH_SIZE':
       return { ...state, brushSize: action.payload };
-    case ActionType.SET_CUSTOM_PROMPT:
+    case 'SET_CUSTOM_PROMPT':
       return { ...state, customPrompt: action.payload };
-    case ActionType.SET_IS_LOADING:
+    case 'SET_IS_LOADING':
       return { ...state, isLoading: action.payload };
-    case ActionType.SET_GENERATED_IMAGE:
+    case 'SET_GENERATED_IMAGE':
       return { ...state, generatedImage: action.payload };
-    case ActionType.SET_IS_ELEMENT_UPLOAD_OPEN:
+    case 'SET_IS_ELEMENT_UPLOAD_OPEN':
       return { ...state, isElementUploadOpen: action.payload };
-    case ActionType.SET_EDITING_ANNOTATION:
+    case 'SET_EDITING_ANNOTATION':
       return { ...state, editingAnnotation: action.payload };
-    case ActionType.SET_CONFIRMING_NEW_IMAGE:
+    case 'SET_CONFIRMING_NEW_IMAGE':
       return { ...state, confirmingNewImage: action.payload };
-    case ActionType.SET_IS_CAMERA_ROLL_OPEN:
+    case 'SET_IS_CAMERA_ROLL_OPEN':
       return { ...state, isCameraRollOpen: action.payload };
-    case ActionType.SET_IS_API_KEY_DIALOG_OPEN:
+    case 'SET_IS_API_KEY_DIALOG_OPEN':
       return { ...state, isApiKeyDialogOpen: action.payload };
 
-    case ActionType.LOAD_STATE_FROM_HISTORY:
+    case 'LOAD_STATE_FROM_HISTORY':
       const item = action.payload;
       if (!item) {
         return {
@@ -213,7 +183,7 @@ export function reducer(state: AppState, action: Action): AppState {
           activeHistoryId: item.id
       }
     
-    case ActionType.START_NEW_SESSION:
+    case 'START_NEW_SESSION':
         const newItem = action.payload;
         return {
             ...state,
@@ -224,9 +194,10 @@ export function reducer(state: AppState, action: Action): AppState {
             elementImageUrls: [null, null, null],
             elementImages: [null, null, null],
             elementNames: ['', '', ''],
+            customPrompt: '',
         }
     
-    case ActionType.DELETE_HISTORY_ITEM:
+    case 'DELETE_HISTORY_ITEM':
         const idToDelete = action.payload;
         const newHistory = state.sessionHistory.filter(item => item.id !== idToDelete);
         let nextActiveItem = null;
