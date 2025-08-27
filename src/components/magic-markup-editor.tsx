@@ -22,7 +22,7 @@ export function MagicMarkupEditor() {
 
   return (
     <div className="flex h-screen flex-col">
-      <Header />
+      <Header onApiKeyClick={() => hook.setIsApiKeyDialogOpen(true)} />
       <div className="grid flex-1 grid-cols-1 md:grid-cols-[auto_1fr_350px]">
         <HistorySidebar
           isCameraRollOpen={hook.isCameraRollOpen}
