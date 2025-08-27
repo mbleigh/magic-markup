@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { type CanvasObject, type Tool, type BrushSize } from '@/lib/types';
+import { type Tool, type BrushSize } from '@/lib/types';
 import { ColorPicker } from './color-picker';
 import { Header } from './header';
 import { IconButton } from './icon-button';
@@ -71,7 +71,7 @@ export function MagicMarkupEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastPosition = useRef<{ x: number; y: number } | null>(null);
-  const history = useRef<(typeof highlights | typeof annotations)[]>([]);
+  const history = useRef<any[]>([]);
   const historyPointer = useRef(-1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,14 +144,14 @@ export function MagicMarkupEditor() {
       highlights: JSON.parse(JSON.stringify(highlights)),
       annotations: JSON.parse(JSON.stringify(annotations)),
     };
-    history.current.push(snapshot as any);
+    history.current.push(snapshot);
     historyPointer.current++;
   }, [highlights, annotations]);
 
   const undo = useCallback(() => {
     if (historyPointer.current > 0) {
       historyPointer.current--;
-      const snapshot = history.current[historyPointer.current] as any;
+      const snapshot = history.current[historyPointer.current];
       setHighlights(snapshot.highlights);
       setAnnotations(snapshot.annotations);
     }
@@ -160,7 +160,7 @@ export function MagicMarkupEditor() {
   const redo = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
       historyPointer.current++;
-      const snapshot = history.current[historyPointer.current] as any;
+      const snapshot = history.current[historyPointer.current];
       setHighlights(snapshot.highlights);
       setAnnotations(snapshot.annotations);
     }
@@ -169,7 +169,7 @@ export function MagicMarkupEditor() {
   const handleClear = () => {
     setHighlights([]);
     setAnnotations([]);
-    history.current = [{ highlights: [], annotations: [] } as any];
+    history.current = [{ highlights: [], annotations: [] }];
     historyPointer.current = 0;
   }
   
@@ -466,7 +466,7 @@ export function MagicMarkupEditor() {
   }, [baseImage, toast, isElementUploadOpen, addElementImage]);
 
   useEffect(() => {
-    history.current.push({ highlights: [], annotations: [] } as any);
+    history.current.push({ highlights: [], annotations: [] });
     historyPointer.current = 0;
 
     window.addEventListener('paste', handlePaste);
