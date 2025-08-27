@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
@@ -15,7 +14,8 @@ const BRUSH_SIZES: Record<BrushSize, number> = {
 };
 const MAX_DIMENSION = 1000;
 const SELECTION_PADDING = 10;
-const LOCAL_STORAGE_KEY = 'magic-markup-session';
+const LOCAL_STORAGE_KEY_SESSION = 'magic-markup-session';
+const LOCAL_STORAGE_KEY_API_KEY = 'magic-markup-api-key';
 
 export function useMagicMarkup() {
   const { toast } = useToast();
@@ -24,6 +24,7 @@ export function useMagicMarkup() {
   const [isMounted, setIsMounted] = useState(false);
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
 
   const [baseImage, setBaseImage] = useState<string | null>(null);
   const [elementImages, setElementImages] = useState<(File | null)[]>([null, null, null]);
@@ -40,6 +41,7 @@ export function useMagicMarkup() {
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
   const [confirmingNewImage, setConfirmingNewImage] = useState<string | null>(null);
   const [isCameraRollOpen, setIsCameraRollOpen] = useState(true);
+  const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
 
   // Canvas interaction refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -78,6 +80,12 @@ export function useMagicMarkup() {
     setSessionHistory(newHistory);
     setActiveHistoryId(newItem.id);
     loadStateFromHistoryItem(newItem);
+    // When starting a new session, clear annotations and elements, but keep the prompt.
+    setCanvasObjects([]);
+    setElementImageUrls([null, null, null]);
+    setElementImages([null, null, null]);
+    setElementNames(['','','']);
+
   }, [createNewHistoryItem, sessionHistory]);
   
   const loadStateFromHistoryItem = (item: SessionHistoryItem | null) => {
@@ -425,6 +433,11 @@ export function useMagicMarkup() {
   };
 
   const handleGenerate = async () => {
+    if (!apiKey) {
+      setIsApiKeyDialogOpen(true);
+      return;
+    }
+
     if (!baseImage) {
       toast({
         variant: 'destructive',
@@ -495,7 +508,7 @@ export function useMagicMarkup() {
         .map((url, i) => ({ url, name: elementNames[i] || `element${i+1}` }))
         .filter(el => el.url) as { name: string; url: string }[];
 
-      const result = await generateImageEdit({
+      const result = await generateImageEdit(apiKey, {
         baseImage,
         annotatedImage,
         elementImages: elementImageUrlsPayload,
@@ -642,10 +655,20 @@ export function useMagicMarkup() {
     }
   };
 
+  const handleSaveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem(LOCAL_STORAGE_KEY_API_KEY, key);
+    setIsApiKeyDialogOpen(false);
+    toast({ title: "API Key saved!"});
+  }
+
   useEffect(() => {
     setIsMounted(true);
     try {
-      const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const savedKey = localStorage.getItem(LOCAL_STORAGE_KEY_API_KEY);
+      if(savedKey) setApiKey(savedKey);
+
+      const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY_SESSION);
       if (savedSession) {
         const { history, activeId } = JSON.parse(savedSession);
         if (history && Array.isArray(history) && history.length > 0) {
@@ -656,7 +679,7 @@ export function useMagicMarkup() {
       }
     } catch (e) {
       console.error("Failed to load session from local storage", e);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_KEY_SESSION);
     }
   }, []);
 
@@ -676,9 +699,9 @@ export function useMagicMarkup() {
         const newHistory = sessionHistory.map(item => item.id === activeHistoryId ? updatedActiveItem : item);
         
         const dataToSave = JSON.stringify({ history: newHistory, activeId: activeHistoryId });
-        localStorage.setItem(LOCAL_STORAGE_KEY, dataToSave);
+        localStorage.setItem(LOCAL_STORAGE_KEY_SESSION, dataToSave);
       } else if (sessionHistory.length === 0 && !baseImage) {
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        localStorage.removeItem(LOCAL_STORAGE_KEY_SESSION);
       }
 
     } catch(e) {
@@ -743,6 +766,8 @@ export function useMagicMarkup() {
     setConfirmingNewImage,
     isCameraRollOpen,
     setIsCameraRollOpen,
+    isApiKeyDialogOpen, 
+    setIsApiKeyDialogOpen,
     canvasRef,
     fileInputRef,
     elementFileInputRef,
@@ -770,6 +795,7 @@ export function useMagicMarkup() {
     setElementImageUrls,
     elementNames,
     setElementNames,
-    EDITOR_COLORS
+    EDITOR_COLORS,
+    handleSaveApiKey
   };
 }

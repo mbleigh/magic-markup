@@ -43,8 +43,8 @@ export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema
 export type GenerateImageEditOutput = z.infer<typeof GenerateImageEditOutputSchema>;
 
 // Exported function to trigger the flow
-export async function generateImageEdit(input: GenerateImageEditInput): Promise<GenerateImageEditOutput> {
-  return generateImageEditFlow(input);
+export async function generateImageEdit(apiKey: string, input: GenerateImageEditInput): Promise<GenerateImageEditOutput> {
+  return generateImageEditFlow(input, {context: {apiKey}});
 }
 
 // Define the prompt
@@ -92,12 +92,14 @@ const generateImageEditFlow = ai.defineFlow(
     inputSchema: GenerateImageEditInputSchema,
     outputSchema: GenerateImageEditOutputSchema,
   },
-  async input => {
+  async (input, {context}) => {
+    if (!context?.apiKey) throw new Error("Must supply an API key.");
+
     if (!input.annotatedImage && !input.customPrompt) {
       throw new Error('Please provide either an annotated image or a custom prompt.');
     }
     
-    const {media} = await imageEditPrompt(input);
+    const {media} = await imageEditPrompt(input, {config: {apiKey: context.apiKey}});
 
     return {editedImage: media?.url || ''};
   }

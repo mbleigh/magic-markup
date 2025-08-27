@@ -11,6 +11,7 @@ import { EditorCanvas } from './editor-canvas';
 import { Toolbar } from './toolbar';
 import { GeneratedImageDialog } from './generated-image-dialog';
 import { ConfirmNewImageDialog } from './confirm-new-image-dialog';
+import { ApiKeyDialog } from './api-key-dialog';
 
 export function MagicMarkupEditor() {
   const hook = useMagicMarkup();
@@ -84,6 +85,13 @@ export function MagicMarkupEditor() {
             handleDownload={hook.handleDownload}
             handleKeepEditing={hook.handleKeepEditing}
         />
+
+        <ApiKeyDialog 
+          isOpen={hook.isApiKeyDialogOpen}
+          onOpenChange={hook.setIsApiKeyDialogOpen}
+          onSave={hook.handleSaveApiKey}
+        />
+
       </div>
     </div>
   );
