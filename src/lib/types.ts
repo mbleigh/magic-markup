@@ -1,22 +1,27 @@
-export interface Highlight {
+export interface CanvasObject {
   id: string;
+  type: 'highlight' | 'annotation';
+  selected?: boolean;
+}
+
+export interface Highlight extends CanvasObject {
+  type: 'highlight';
   color: string;
   points: { x: number; y: number }[];
   strokeWidth: number;
 }
 
-export interface Annotation {
-  id: string;
+export interface Annotation extends CanvasObject {
+  type: 'annotation';
   color: string;
   text: string;
   position: { x: number; y: number };
   fontSize: number;
+  width?: number;
+  height?: number;
 }
 
-export type CanvasObject = Highlight | Annotation;
 
-export type Tool = 'highlight' | 'annotate' | 'erase';
+export type Tool = 'highlight' | 'annotate' | 'erase' | 'select';
 
 export type BrushSize = 'small' | 'medium' | 'large';
-
-    

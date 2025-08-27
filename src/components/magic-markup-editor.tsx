@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
 import Image from 'next/image';
 import {
+  ArrowPointer,
   Brush,
   ClipboardCopy,
   Download,
@@ -26,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { type Tool, type BrushSize } from '@/lib/types';
+import { type Tool, type BrushSize, type CanvasObject, type Annotation, type Highlight } from '@/lib/types';
 import { ColorPicker } from './color-picker';
 import { Header } from './header';
 import { IconButton } from './icon-button';
@@ -41,7 +42,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { TextAnnotator, type TextAnnotation } from './text-annotator';
+import { TextAnnotator, type TextAnnotation as TextAnnotatorInput } from './text-annotator';
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
 const BRUSH_SIZES: Record<BrushSize, number> = {
@@ -50,6 +51,7 @@ const BRUSH_SIZES: Record<BrushSize, number> = {
   large: 20,
 };
 const MAX_DIMENSION = 1000;
+const SELECTION_PADDING = 10;
 
 export function MagicMarkupEditor() {
   const { toast } = useToast();
@@ -59,8 +61,7 @@ export function MagicMarkupEditor() {
   const [elementImages, setElementImages] = useState<(File | null)[]>([null, null, null]);
   const [elementImageUrls, setElementImageUrls] = useState<(string | null)[]>([null, null, null]);
   const [elementNames, setElementNames] = useState<string[]>(['', '', '']);
-  const [highlights, setHighlights] = useState<any[]>([]);
-  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>([]);
   const [tool, setTool] = useState<Tool>('highlight');
   const [color, setColor] = useState<string>(EDITOR_COLORS[0]);
   const [brushSize, setBrushSize] = useState<BrushSize>('medium');
@@ -74,8 +75,13 @@ export function MagicMarkupEditor() {
   // Canvas interaction refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const isDrawing = useRef(false);
-  const lastPosition = useRef<{ x: number; y: number } | null>(null);
+  const interactionState = useRef<{
+    isDrawing?: boolean;
+    isDragging?: boolean;
+    dragOffset?: { x: number, y: number };
+    lastPosition?: { x: number, y: number };
+  }>({});
+
   const history = useRef<any[]>([]);
   const historyPointer = useRef(-1);
 
@@ -143,45 +149,44 @@ export function MagicMarkupEditor() {
     }
   };
 
-
+  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    return { x, y };
+  };
+  
   const saveHistory = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
       history.current.splice(historyPointer.current + 1);
     }
-    const snapshot = {
-      highlights: JSON.parse(JSON.stringify(highlights)),
-      annotations: JSON.parse(JSON.stringify(annotations)),
-    };
-    history.current.push(snapshot);
+    history.current.push(JSON.parse(JSON.stringify(canvasObjects)));
     historyPointer.current++;
-  }, [highlights, annotations]);
+  }, [canvasObjects]);
 
   const undo = useCallback(() => {
     if (historyPointer.current > 0) {
       historyPointer.current--;
-      const snapshot = history.current[historyPointer.current];
-      setHighlights(snapshot.highlights);
-      setAnnotations(snapshot.annotations);
+      setCanvasObjects(history.current[historyPointer.current]);
     }
   }, []);
 
   const redo = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
       historyPointer.current++;
-      const snapshot = history.current[historyPointer.current];
-      setHighlights(snapshot.highlights);
-      setAnnotations(snapshot.annotations);
+      setCanvasObjects(history.current[historyPointer.current]);
     }
   }, []);
 
   const handleClear = () => {
-    setHighlights([]);
-    setAnnotations([]);
-    history.current = [{ highlights: [], annotations: [] }];
+    setCanvasObjects([]);
+    history.current = [[]];
     historyPointer.current = 0;
-  }
+  };
   
-  const redrawCanvas = useCallback((forExport = false) => {
+  const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -189,70 +194,115 @@ export function MagicMarkupEditor() {
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const drawContent = () => {
-      // Redraw highlights
-      highlights.forEach(h => {
-          ctx.strokeStyle = h.color;
-          ctx.lineWidth = h.strokeWidth;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.globalAlpha = 0.5;
-          ctx.beginPath();
-          h.points.forEach((p: {x: number, y: number}, i: number) => {
-              if (i === 0) ctx.moveTo(p.x, p.y);
-              else ctx.lineTo(p.x, p.y);
-          });
-          ctx.stroke();
-      });
+    const drawObject = (obj: CanvasObject) => {
+        if (obj.type === 'highlight') {
+            const h = obj as Highlight;
+            ctx.strokeStyle = h.color;
+            ctx.lineWidth = h.strokeWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            h.points.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+        } else if (obj.type === 'annotation') {
+            const a = obj as Annotation;
+            ctx.globalAlpha = 1.0;
+            ctx.font = `bold ${a.fontSize}px "Patrick Hand", cursive`;
+            ctx.fillStyle = a.color;
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = a.fontSize / 15;
+            ctx.strokeText(a.text, a.position.x, a.position.y);
+            ctx.fillText(a.text, a.position.x, a.position.y);
 
-      // Redraw annotations
-      ctx.globalAlpha = 1.0;
-      annotations.forEach(a => {
-          ctx.font = `bold ${a.fontSize}px "Patrick Hand", cursive`;
-          ctx.fillStyle = a.color;
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = a.fontSize / 15;
-          ctx.strokeText(a.text, a.position.x, a.position.y);
-          ctx.fillText(a.text, a.position.x, a.position.y);
-      });
-    }
+            // Update width/height for hit testing
+            if(!a.width || !a.height) {
+              const metrics = ctx.measureText(a.text);
+              a.width = metrics.width;
+              a.height = a.fontSize;
+            }
 
-    if (baseImage) {
-        const img = new window.Image();
-        img.src = baseImage;
-        img.onload = () => {
-            if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
-              canvas.width = img.naturalWidth;
-              canvas.height = img.naturalHeight;
+            if (a.selected) {
+                ctx.strokeStyle = '#007AFF'; // Selection color
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 1.0;
+                ctx.strokeRect(
+                    a.position.x - SELECTION_PADDING,
+                    a.position.y - a.height - SELECTION_PADDING,
+                    a.width + SELECTION_PADDING * 2,
+                    a.height + SELECTION_PADDING * 2
+                );
             }
-            if(forExport) {
-              ctx.drawImage(img, 0, 0);
-            }
-            drawContent();
-        };
-    } else {
-      drawContent();
-    }
-  }, [baseImage, highlights, annotations]);
+        }
+    };
+
+    canvasObjects.forEach(drawObject);
+
+  }, [canvasObjects]);
+  
+  const hitTest = (x: number, y: number): CanvasObject | null => {
+      // Iterate backwards to select the top-most object
+      for (let i = canvasObjects.length - 1; i >= 0; i--) {
+          const obj = canvasObjects[i];
+          if (obj.type === 'annotation') {
+              const a = obj as Annotation;
+              if(a.width && a.height) {
+                if (x >= a.position.x && x <= a.position.x + a.width && y >= a.position.y - a.height && y <= a.position.y) {
+                    return obj;
+                }
+              }
+          } else if (obj.type === 'highlight') {
+              const h = obj as Highlight;
+              const isNear = h.points.some(p => Math.hypot(p.x - x, p.y - y) < h.strokeWidth / 2 + 5);
+              if (isNear) return obj;
+          }
+      }
+      return null;
+  };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-    
+    const { x, y } = getCanvasCoordinates(e);
+
     if (tool === 'annotate') {
       setAnnotationPosition({ x: e.clientX, y: e.clientY });
       setIsAnnotating(true);
       return;
     }
+
+    if (tool === 'select') {
+        const hitObject = hitTest(x, y);
+        
+        setCanvasObjects(prev => prev.map(obj => {
+          const isSelected = obj.id === hitObject?.id;
+          if (obj.selected !== isSelected) {
+              return { ...obj, selected: isSelected };
+          }
+          return obj;
+        }));
+
+        if (hitObject) {
+            interactionState.current = { 
+              isDragging: true, 
+              dragOffset: { x: x - (hitObject as any).position.x, y: y - (hitObject as any).position.y }
+            };
+        }
+        return;
+    }
     
-    isDrawing.current = true;
-    lastPosition.current = { x, y };
+    interactionState.current = { isDrawing: true, lastPosition: { x, y } };
 
     if (tool === 'highlight') {
-        setHighlights(prev => [...prev, { id: Date.now().toString(), color, points: [{x, y}], strokeWidth: BRUSH_SIZES[brushSize] * (canvas.width / MAX_DIMENSION) }]);
+        const newHighlight: Highlight = { 
+          id: Date.now().toString(), 
+          type: 'highlight',
+          color, 
+          points: [{ x, y }], 
+          strokeWidth: BRUSH_SIZES[brushSize] * (canvasRef.current!.width / MAX_DIMENSION) 
+        };
+        setCanvasObjects(prev => [...prev, newHighlight]);
     } else if (tool === 'erase') {
         erase(x, y);
     }
@@ -266,81 +316,64 @@ export function MagicMarkupEditor() {
     const y = (annotationPosition.y - rect.top) * (canvas.height / rect.height);
 
     if (text) {
-      setAnnotations(prev => [...prev, {
+      const newAnnotation: Annotation = {
         id: Date.now().toString(),
+        type: 'annotation',
         color,
         text,
         position: { x, y },
-        fontSize: BRUSH_SIZES[brushSize] * 2.5 * (canvas.width / MAX_DIMENSION)
-      }]);
+        fontSize: BRUSH_SIZES[brushSize] * 3 * (canvas.width / MAX_DIMENSION)
+      };
+      setCanvasObjects(prev => [...prev, newAnnotation]);
       saveHistory();
     }
     setIsAnnotating(false);
   };
   
   const erase = (x: number, y: number) => {
-    const eraseRadius = BRUSH_SIZES[brushSize];
-    let changed = false;
-
-    const filteredHighlights = highlights.filter(h => {
-        const isNear = h.points.some((p: { x: number, y: number }) => {
-            const dist = Math.hypot(p.x - x, p.y - y);
-            return dist < eraseRadius + h.strokeWidth;
-        });
-        if(isNear) changed = true;
-        return !isNear;
-    });
-
-    const filteredAnnotations = annotations.filter(a => {
-        const ctx = canvasRef.current?.getContext('2d');
-        if (!ctx) return true;
-        ctx.font = `bold ${a.fontSize}px "Patrick Hand", cursive`;
-        const textMetrics = ctx.measureText(a.text);
-        const textWidth = textMetrics.width;
-        const textHeight = a.fontSize;
-        
-        const isInside = (
-            x > a.position.x &&
-            x < a.position.x + textWidth &&
-            y > a.position.y - textHeight &&
-            y < a.position.y
-        );
-
-        if(isInside) changed = true;
-        return !isInside;
-    });
-
-    if(changed) {
-      setHighlights(filteredHighlights);
-      setAnnotations(filteredAnnotations);
-      saveHistory();
+    const hitObject = hitTest(x, y);
+    if(hitObject) {
+      setCanvasObjects(prev => prev.filter(obj => obj.id !== hitObject.id));
     }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const { isDrawing, isDragging } = interactionState.current;
+    if (!isDrawing && !isDragging) return;
 
-    if (tool === 'highlight') {
-        setHighlights(prev => {
-            const newHighlights = [...prev];
-            newHighlights[newHighlights.length - 1].points.push({x,y});
-            return newHighlights;
+    const { x, y } = getCanvasCoordinates(e);
+
+    if (isDragging && tool === 'select') {
+      const { dragOffset } = interactionState.current;
+      setCanvasObjects(prev => prev.map(obj => {
+          if (obj.selected && obj.type === 'annotation' && dragOffset) {
+              return { ...obj, position: { x: x - dragOffset.x, y: y - dragOffset.y } };
+          }
+          return obj;
+      }));
+      return;
+    }
+
+    if (tool === 'highlight' && isDrawing) {
+        setCanvasObjects(prev => {
+            const newObjects = [...prev];
+            const lastObj = newObjects[newObjects.length - 1] as Highlight;
+            if (lastObj && lastObj.type === 'highlight') {
+              lastObj.points.push({x,y});
+            }
+            return newObjects;
         });
-    } else if (tool === 'erase') {
+    } else if (tool === 'erase' && isDrawing) {
         erase(x, y);
     }
   };
 
   const handleCanvasMouseUp = () => {
-    if (isDrawing.current && (tool === 'highlight' || tool === 'erase')) {
+    const { isDrawing, isDragging } = interactionState.current;
+    if (isDrawing || isDragging) {
       saveHistory();
     }
-    isDrawing.current = false;
+    interactionState.current = {};
   };
 
   const handleGenerate = async () => {
@@ -352,6 +385,19 @@ export function MagicMarkupEditor() {
       });
       return;
     }
+    
+    const highlights = canvasObjects.filter(o => o.type === 'highlight') as Highlight[];
+    const annotations = canvasObjects.filter(o => o.type === 'annotation') as Annotation[];
+    
+    if (highlights.length === 0 && annotations.length === 0 && !customPrompt) {
+      toast({
+        variant: 'destructive',
+        title: 'Nothing to Generate',
+        description: 'Please add highlights, annotations, or a prompt.',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -380,7 +426,7 @@ export function MagicMarkupEditor() {
             ctx.beginPath();
             h.points.forEach((p: {x: number, y: number}, i: number) => {
                 if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
+                else ctx.lineTo(p.y, p.y);
             });
             ctx.stroke();
         });
@@ -399,19 +445,22 @@ export function MagicMarkupEditor() {
         annotatedImage = annotatedCanvas.toDataURL('image/png');
       }
 
-      const elementImage1 = elementImageUrls[0];
-      const elementImage2 = elementImageUrls[1];
-      const elementImage3 = elementImageUrls[2];
+      const elementImageUrlsPayload = elementImageUrls
+        .map((url, i) => ({ url, name: elementNames[i] || `element${i+1}` }))
+        .filter(el => el.url) as { name: string; url: string }[];
 
       const result = await generateImageEdit({
         baseImage,
         annotatedImage,
-        elementImage1,
-        elementImage2,
-        elementImage3,
+        elementImages: elementImageUrlsPayload,
         customPrompt,
       });
-      setGeneratedImage(result.editedImage);
+
+      if (result.editedImage) {
+        setGeneratedImage(result.editedImage);
+      } else {
+        throw new Error('The AI model did not return an image.');
+      }
     } catch (error: any) {
       console.error('AI Generation Error:', error);
       toast({
@@ -468,7 +517,6 @@ export function MagicMarkupEditor() {
     const items = event.clipboardData?.items;
     if (!items) return;
 
-    // Do not interfere with text input pasting
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
         return;
     }
@@ -499,20 +547,33 @@ export function MagicMarkupEditor() {
           });
         }
       }
-      // Stop after handling the first image
       break;
     }
   }, [baseImage, toast, isElementUploadOpen, addElementImage]);
+  
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const hasSelection = canvasObjects.some(o => o.selected);
+      if (hasSelection) {
+        e.preventDefault();
+        setCanvasObjects(prev => prev.filter(o => !o.selected));
+        saveHistory();
+      }
+    }
+  }, [canvasObjects, saveHistory]);
 
   useEffect(() => {
-    history.current.push({ highlights: [], annotations: [] });
+    history.current.push([]);
     historyPointer.current = 0;
 
     window.addEventListener('paste', handlePaste);
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
         window.removeEventListener('paste', handlePaste);
+        window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handlePaste]);
+  }, [handlePaste, handleKeyDown]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -529,7 +590,7 @@ export function MagicMarkupEditor() {
 
   useEffect(() => {
     redrawCanvas();
-  }, [highlights, annotations, redrawCanvas]);
+  }, [canvasObjects, redrawCanvas]);
 
 
   return (
@@ -569,7 +630,7 @@ export function MagicMarkupEditor() {
                     onSave={handleSaveAnnotation}
                     onCancel={() => setIsAnnotating(false)}
                     color={color}
-                    fontSize={BRUSH_SIZES[brushSize] * 2.5 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)}
+                    fontSize={BRUSH_SIZES[brushSize] * 3 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)}
                     containerRef={canvasContainerRef}
                    />
                  )}
@@ -598,6 +659,7 @@ export function MagicMarkupEditor() {
                 <CardContent className="grid gap-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
+                          <IconButton icon={ArrowPointer} tooltip="Select" isActive={tool === 'select'} onClick={() => setTool('select')} />
                           <IconButton icon={Brush} tooltip="Highlight" isActive={tool === 'highlight'} onClick={() => setTool('highlight')} />
                           <IconButton icon={Type} tooltip="Annotate" isActive={tool === 'annotate'} onClick={() => setTool('annotate')} />
                           <IconButton icon={Eraser} tooltip="Erase" isActive={tool === 'erase'} onClick={() => setTool('erase')} />

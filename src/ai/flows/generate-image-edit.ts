@@ -25,23 +25,12 @@ const GenerateImageEditInputSchema = z.object({
     .describe(
       "The annotated image (base image with highlights and text), as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  elementImage1: z
-    .string()
-    .nullable()
+  elementImages: z
+    .array(z.object({name: z.string(), url: z.string()}))
+    .max(3)
+    .optional()
     .describe(
-      "The first element image to use for editing, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-  elementImage2: z
-    .string()
-    .nullable()
-    .describe(
-      "The second element image to use for editing, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-  elementImage3: z
-    .string()
-    .nullable()
-    .describe(
-      "The third element image to use for editing, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "up to three 'element' images that might be incorporated into the edit"
     ),
   customPrompt: z.string().optional().describe('Optional custom prompt to influence the image editing process.'),
 });
@@ -68,21 +57,28 @@ const imageEditPrompt = ai.definePrompt({
 
 Base Image: {{media url=baseImage}}
 {{#if annotatedImage}}
+=== Annotations
+
+The user has provided annotations to the image using simple highlighter and text tools. These annotations may circle, highlight, or otherwise mark edits for the original image. DO NOT keep any of the annotations directly, but use them to guide your final output.
+
 Annotated Image: {{media url=annotatedImage}}
 {{/if}}
 
-{{#if elementImage1}}
-Element Image 1: {{media url=elementImage1}}
-{{/if}}
-{{#if elementImage2}}
-Element Image 2: {{media url=elementImage2}}
-{{/if}}
-{{#if elementImage3}}
-Element Image 3: {{media url=elementImage3}}
+{{#if elementImages.length}}
+=== Element Images
+
+The user has provided additional "element" images that might be referenced in the prompt or annotations.
+{{#each elementImages}}
+{{{this.name}}}: {{media url=this.url}}
+{{/each}}
 {{/if}}
 
 {{#if customPrompt}}
-Custom Prompt: {{{customPrompt}}}
+=== Custom Prompt
+
+The user has provided an additional custom prompt to guide the image edit:
+
+{{{customPrompt}}}
 {{/if}}
 `,
 });
@@ -99,30 +95,8 @@ const generateImageEditFlow = ai.defineFlow(
       throw new Error('Please provide either an annotated image or a custom prompt.');
     }
     
-    const promptInput: any = {
-      baseImage: input.baseImage,
-    };
+    const {media} = await imageEditPrompt(input);
 
-    if (input.annotatedImage) {
-      promptInput.annotatedImage = input.annotatedImage;
-    }
-
-    if (input.elementImage1) {
-      promptInput.elementImage1 = input.elementImage1;
-    }
-    if (input.elementImage2) {
-      promptInput.elementImage2 = input.elementImage2;
-    }
-    if (input.elementImage3) {
-      promptInput.elementImage3 = input.elementImage3;
-    }
-
-    if (input.customPrompt) {
-      promptInput.customPrompt = input.customPrompt;
-    }
-
-    const {media} = await imageEditPrompt(promptInput);
-
-    return {editedImage: media?.url};
+    return {editedImage: media?.url || ''};
   }
 );
