@@ -69,7 +69,7 @@ export function MagicMarkupEditor() {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isElementUploadOpen, setIsElementUploadOpen] = useState(false);
-  const [isAnnotating, setIsAnnotating] = useState(false);
+  const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
   const [annotationPosition, setAnnotationPosition] = useState({ x: 0, y: 0 });
 
   // Canvas interaction refs
@@ -80,6 +80,7 @@ export function MagicMarkupEditor() {
     isDragging?: boolean;
     dragOffset?: { x: number, y: number };
     lastPosition?: { x: number, y: number };
+    lastClickTime?: number;
   }>({});
 
   const history = useRef<any[]>([]);
@@ -149,7 +150,7 @@ export function MagicMarkupEditor() {
     }
   }, [elementImageUrls, elementImages, toast]);
 
-  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -195,6 +196,9 @@ export function MagicMarkupEditor() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const drawObject = (obj: CanvasObject) => {
+        // Don't draw the object being edited, the annotator will render it
+        if (editingAnnotation && editingAnnotation.id === obj.id) return;
+
         if (obj.type === 'highlight') {
             const h = obj as Highlight;
             ctx.strokeStyle = h.color;
@@ -249,7 +253,7 @@ export function MagicMarkupEditor() {
 
     canvasObjects.forEach(drawObject);
 
-  }, [canvasObjects]);
+  }, [canvasObjects, editingAnnotation]);
   
   const hitTest = (x: number, y: number): CanvasObject | null => {
       // Iterate backwards to select the top-most object
@@ -275,13 +279,31 @@ export function MagicMarkupEditor() {
     const { x, y } = getCanvasCoordinates(e);
 
     if (tool === 'annotate') {
-      setAnnotationPosition({ x: e.clientX, y: e.clientY });
-      setIsAnnotating(true);
+      setAnnotationPosition({ x: e.nativeEvent.clientX, y: e.nativeEvent.clientY });
+      setEditingAnnotation({
+        id: Date.now().toString(),
+        type: 'annotation',
+        text: '',
+        color: color,
+        position: {x, y},
+        fontSize: BRUSH_SIZES[brushSize] * 4 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)
+      });
       return;
     }
 
     if (tool === 'select') {
+        const now = Date.now();
+        const doubleClick = (now - (interactionState.current.lastClickTime || 0)) < 300;
+        interactionState.current.lastClickTime = now;
+        
         const hitObject = hitTest(x, y);
+
+        if (doubleClick && hitObject?.type === 'annotation') {
+          setEditingAnnotation(hitObject as Annotation);
+          // Unselect all other objects
+          setCanvasObjects(prev => prev.map(obj => obj.id === hitObject.id ? obj : { ...obj, selected: false }));
+          return;
+        }
         
         setCanvasObjects(prev => prev.map(obj => {
           const isSelected = obj.id === hitObject?.id;
@@ -293,6 +315,7 @@ export function MagicMarkupEditor() {
 
         if (hitObject && hitObject.type === 'annotation') {
             interactionState.current = { 
+              ...interactionState.current,
               isDragging: true, 
               dragOffset: { x: x - hitObject.position.x, y: y - hitObject.position.y }
             };
@@ -316,26 +339,27 @@ export function MagicMarkupEditor() {
     }
   };
 
-  const handleSaveAnnotation = (text: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (annotationPosition.x - rect.left) * (canvas.width / rect.width);
-    const y = (annotationPosition.y - rect.top) * (canvas.height / rect.height);
-
+  const handleSaveAnnotation = (text: string, id: string, newPosition?: {x: number, y: number}) => {
     if (text) {
-      const newAnnotation: Annotation = {
-        id: Date.now().toString(),
-        type: 'annotation',
-        color,
-        text,
-        position: { x, y },
-        fontSize: BRUSH_SIZES[brushSize] * 4 * (canvas.width / MAX_DIMENSION)
-      };
-      setCanvasObjects(prev => [...prev, newAnnotation]);
+      const existing = canvasObjects.find(o => o.id === id);
+      if (existing) {
+        // Update existing
+        setCanvasObjects(prev => prev.map(o => o.id === id ? { ...o, text, position: newPosition || (o as Annotation).position } as Annotation : o));
+      } else {
+        // Create new
+        const newAnnotation: Annotation = {
+          id: id,
+          type: 'annotation',
+          color: color,
+          text: text,
+          position: newPosition || {x: 0, y: 0},
+          fontSize: BRUSH_SIZES[brushSize] * 4 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)
+        };
+        setCanvasObjects(prev => [...prev, newAnnotation]);
+      }
       saveHistory();
     }
-    setIsAnnotating(false);
+    setEditingAnnotation(null);
   };
   
   const erase = (x: number, y: number) => {
@@ -381,7 +405,8 @@ export function MagicMarkupEditor() {
     if (isDrawing || isDragging) {
       saveHistory();
     }
-    interactionState.current = {};
+    interactionState.current.isDrawing = false;
+    interactionState.current.isDragging = false;
   };
 
   const handleGenerate = async () => {
@@ -560,6 +585,11 @@ export function MagicMarkupEditor() {
   }, [baseImage, toast, isElementUploadOpen, addElementImage]);
   
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // If an input is focused, don't handle key events
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+
     if (e.key === 'Delete' || e.key === 'Backspace') {
       const hasSelection = canvasObjects.some(o => o.selected);
       if (hasSelection) {
@@ -622,24 +652,24 @@ export function MagicMarkupEditor() {
                  />
                  <canvas
                     ref={canvasRef}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain cursor-crosshair"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain"
+                    style={{
+                      width: 'auto',
+                      height: 'auto',
+                      cursor: tool === 'select' ? 'default' : 'crosshair'
+                    }}
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
                     onMouseLeave={handleCanvasMouseUp}
-                    style={{
-                      width: 'auto',
-                      height: 'auto',
-                    }}
                  />
-                 {isAnnotating && (
+                 {editingAnnotation && (
                    <TextAnnotator
-                    initialPosition={annotationPosition}
+                    annotation={editingAnnotation}
                     onSave={handleSaveAnnotation}
-                    onCancel={() => setIsAnnotating(false)}
-                    color={color}
-                    fontSize={BRUSH_SIZES[brushSize] * 4 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)}
+                    onCancel={() => setEditingAnnotation(null)}
                     containerRef={canvasContainerRef}
+                    canvasRef={canvasRef}
                    />
                  )}
             </div>
@@ -801,5 +831,3 @@ export function MagicMarkupEditor() {
     </div>
   );
 }
-
-    

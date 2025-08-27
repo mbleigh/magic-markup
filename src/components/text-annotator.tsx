@@ -4,63 +4,44 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Check, X } from 'lucide-react';
+import type { Annotation } from '@/lib/types';
 
-export interface TextAnnotation {
-  text: string;
-  position: { x: number; y: number };
-  color: string;
-  fontSize: number;
-}
 
 interface TextAnnotatorProps {
-  initialPosition: { x: number; y: number };
-  onSave: (text: string) => void;
+  annotation: Annotation;
+  onSave: (text: string, id: string, newPosition?: {x: number, y: number}) => void;
   onCancel: () => void;
-  color: string;
-  fontSize: number;
   containerRef: React.RefObject<HTMLDivElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
 }
 
 export function TextAnnotator({
-  initialPosition,
+  annotation,
   onSave,
   onCancel,
-  color,
-  fontSize,
   containerRef,
+  canvasRef,
 }: TextAnnotatorProps) {
-  const [text, setText] = useState('');
-  const [position, setPosition] = useState(initialPosition);
+  const [text, setText] = useState(annotation.text);
+  
+  const getUiPosition = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const x = (annotation.position.x / canvas.width) * rect.width + rect.left;
+    const y = (annotation.position.y / canvas.height) * rect.height + rect.top;
+    return { x, y };
+  }
+
+  const [position, setPosition] = useState(getUiPosition());
   const annotatorRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging.current) {
-        setPosition({
-          x: e.clientX - dragStartPos.current.x,
-          y: e.clientY - dragStartPos.current.y,
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      isDragging.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    if (isDragging.current) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
+    setPosition(getUiPosition());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotation.position.x, annotation.position.y, canvasRef.current]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only drag when clicking the div itself, not the textarea or buttons
@@ -91,9 +72,20 @@ export function TextAnnotator({
     }
   };
 
+  const getCanvasCoordinatesFromUIPosition = (uiPosition: {x: number, y: number}) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const x = (uiPosition.x - rect.left) * (canvas.width / rect.width);
+    const y = (uiPosition.y - rect.top) * (canvas.height / rect.height);
+    return { x, y };
+  }
+
   const handleSave = () => {
+    const newCanvasPos = getCanvasCoordinatesFromUIPosition(position);
+
     if (text.trim()) {
-      onSave(text.trim());
+      onSave(text.trim(), annotation.id, newCanvasPos);
     } else {
       onCancel();
     }
@@ -116,9 +108,10 @@ export function TextAnnotator({
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: 'translate(-50%, -50%)',
+        transform: `translate(-50%, ${annotation.text ? '-50%' : '0%'})`,
       }}
       onMouseDown={handleMouseDown}
+      onClick={(e) => e.stopPropagation()} // Prevent click from propagating to canvas
     >
       <Textarea
         autoFocus
@@ -128,8 +121,8 @@ export function TextAnnotator({
         placeholder="Add annotation..."
         className="font-marker font-bold"
         style={{
-          color: color,
-          fontSize: `${fontSize}px`,
+          color: annotation.color,
+          fontSize: `${annotation.fontSize}px`,
           lineHeight: 1.2,
           minHeight: '40px',
         }}
