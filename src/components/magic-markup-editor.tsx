@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
 import Image from 'next/image';
 import {
-  ArrowPointer,
+  MousePointer2,
   Brush,
   ClipboardCopy,
   Download,
@@ -659,7 +659,7 @@ export function MagicMarkupEditor() {
                 <CardContent className="grid gap-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
-                          <IconButton icon={ArrowPointer} tooltip="Select" isActive={tool === 'select'} onClick={() => setTool('select')} />
+                          <IconButton icon={MousePointer2} tooltip="Select" isActive={tool === 'select'} onClick={() => setTool('select')} />
                           <IconButton icon={Brush} tooltip="Highlight" isActive={tool === 'highlight'} onClick={() => setTool('highlight')} />
                           <IconButton icon={Type} tooltip="Annotate" isActive={tool === 'annotate'} onClick={() => setTool('annotate')} />
                           <IconButton icon={Eraser} tooltip="Erase" isActive={tool === 'erase'} onClick={() => setTool('erase')} />
