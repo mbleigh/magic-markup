@@ -57,6 +57,7 @@ export async function generateImageEdit(input: GenerateImageEditInput): Promise<
 // Define the prompt
 const imageEditPrompt = ai.definePrompt({
   name: 'imageEditPrompt',
+  model: 'gemini-2.5-flash',
   input: {schema: GenerateImageEditInputSchema},
   output: {schema: GenerateImageEditOutputSchema},
   prompt: `You are an AI image editor. You will take a base image, and edit it based on highlights, annotations, and element images if provided. You will always return a data URL representing the final edited image.
@@ -104,24 +105,7 @@ const generateImageEditFlow = ai.defineFlow(
       promptInput.customPrompt = input.customPrompt;
     }
 
-    const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: [
-        {media: {url: input.baseImage}},
-        {
-          text: `Edit this image based on these instructions: Highlights - ${input.highlights}, Annotations - ${input.annotations}
-
-          ${input.elementImage1 ? `Also incorporate element image 1.` : ''}
-          ${input.elementImage2 ? `Also incorporate element image 2.` : ''}
-          ${input.elementImage3 ? `Also incorporate element image 3.` : ''}
-
-          ${input.customPrompt ? `Custom Prompt: ${input.customPrompt}` : ''}`,
-        },
-      ],
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'], // Must provide both TEXT and IMAGE, IMAGE only won't work
-      },
-    });
+    const {media} = await imageEditPrompt(promptInput);
 
     if (!media) {
       throw new Error('No edited image was generated.');
