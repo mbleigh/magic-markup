@@ -25,14 +25,26 @@ export function resizeImage(dataUrl: string, maxWidth: number, maxHeight: number
       let { width, height } = img;
       const ratio = width / height;
 
-      if (width > maxWidth) {
-        width = maxWidth;
-        height = width / ratio;
-      }
-
-      if (height > maxHeight) {
-        height = maxHeight;
-        width = height * ratio;
+      if (width > maxWidth || height > maxHeight) {
+          if (ratio > 1) { // Landscape
+              width = maxWidth;
+              height = width / ratio;
+          } else { // Portrait or square
+              height = maxHeight;
+              width = height * ratio;
+          }
+      } else {
+         if (ratio > 1) { // Landscape
+              if (width < maxWidth) {
+                  width = maxWidth;
+                  height = width / ratio;
+              }
+          } else { // Portrait or square
+              if (height < maxHeight) {
+                  height = maxHeight;
+                  width = height * ratio;
+              }
+          }
       }
 
       canvas.width = width;
