@@ -10,7 +10,6 @@
  */
 
 import {ai} from '@/ai/genkit';
-import googleAI from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
 // Define schemas for the input and output data
@@ -22,6 +21,7 @@ const GenerateImageEditInputSchema = z.object({
     ),
   annotatedImage: z
     .string()
+    .optional()
     .describe(
       "The annotated image (base image with highlights and text), as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
@@ -68,11 +68,19 @@ const imageEditPrompt = ai.definePrompt({
   prompt: `You are an AI image editor. You will take a base image, and edit it based on an annotated version of the image which includes highlights and text. You may also be provided with element images. You will always return a data URL representing the final edited image.
 
 Base Image: {{media url=baseImage}}
+{{#if annotatedImage}}
 Annotated Image: {{media url=annotatedImage}}
+{{/if}}
 
-Element Image 1: {{#if elementImage1}}{{media url=elementImage1}}{{/if}}
-Element Image 2: {{#if elementImage2}}{{media url=elementImage2}}{{/if}}
-Element Image 3: {{#if elementImage3}}{{media url=elementImage3}}{{/if}}
+{{#if elementImage1}}
+Element Image 1: {{media url=elementImage1}}
+{{/if}}
+{{#if elementImage2}}
+Element Image 2: {{media url=elementImage2}}
+{{/if}}
+{{#if elementImage3}}
+Element Image 3: {{media url=elementImage3}}
+{{/if}}
 
 {{#if customPrompt}}
 Custom Prompt: {{{customPrompt}}}
@@ -88,10 +96,17 @@ const generateImageEditFlow = ai.defineFlow(
     outputSchema: GenerateImageEditOutputSchema,
   },
   async input => {
+    if (!input.annotatedImage && !input.customPrompt) {
+      throw new Error('Please provide either an annotated image or a custom prompt.');
+    }
+    
     const promptInput: any = {
       baseImage: input.baseImage,
-      annotatedImage: input.annotatedImage,
     };
+
+    if (input.annotatedImage) {
+      promptInput.annotatedImage = input.annotatedImage;
+    }
 
     if (input.elementImage1) {
       promptInput.elementImage1 = input.elementImage1;

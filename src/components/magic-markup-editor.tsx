@@ -3,12 +3,10 @@
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
 import Image from 'next/image';
 import {
-  Annotation,
   Brush,
   ClipboardCopy,
   Download,
   Eraser,
-  Eye,
   Loader2,
   Palette,
   Redo2,
@@ -23,7 +21,6 @@ import {
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,7 +29,7 @@ import { type CanvasObject, type Tool } from '@/lib/types';
 import { ColorPicker } from './color-picker';
 import { Header } from './header';
 import { IconButton } from './icon-button';
-import { dataUrlToBlob, toPng } from '@/lib/canvas-utils';
+import { dataUrlToBlob } from '@/lib/canvas-utils';
 import {
   Dialog,
   DialogContent,
@@ -280,42 +277,46 @@ export function MagicMarkupEditor() {
     setIsLoading(true);
 
     try {
-      const annotatedCanvas = document.createElement('canvas');
-      const baseImg = new window.Image();
-      baseImg.src = baseImage;
-      await new Promise(resolve => { baseImg.onload = resolve; });
-
-      annotatedCanvas.width = baseImg.naturalWidth;
-      annotatedCanvas.height = baseImg.naturalHeight;
-      const ctx = annotatedCanvas.getContext('2d');
-      if(!ctx) throw new Error("Could not get canvas context");
+      let annotatedImage: string | undefined = undefined;
       
-      ctx.drawImage(baseImg, 0, 0);
+      if (highlights.length > 0 || annotations.length > 0) {
+        const annotatedCanvas = document.createElement('canvas');
+        const baseImg = new window.Image();
+        baseImg.src = baseImage;
+        await new Promise(resolve => { baseImg.onload = resolve; });
 
-      // Draw highlights
-      highlights.forEach(h => {
-          ctx.strokeStyle = h.color;
-          ctx.lineWidth = 10;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.globalAlpha = 0.5;
-          ctx.beginPath();
-          h.points.forEach((p: {x: number, y: number}, i: number) => {
-              if (i === 0) ctx.moveTo(p.x, p.y);
-              else ctx.lineTo(p.x, p.y);
-          });
-          ctx.stroke();
-      });
+        annotatedCanvas.width = baseImg.naturalWidth;
+        annotatedCanvas.height = baseImg.naturalHeight;
+        const ctx = annotatedCanvas.getContext('2d');
+        if(!ctx) throw new Error("Could not get canvas context");
+        
+        ctx.drawImage(baseImg, 0, 0);
 
-      // Draw annotations
-      ctx.globalAlpha = 1.0;
-      annotations.forEach(a => {
-          ctx.font = `bold 24px "Source Code Pro", monospace`;
-          ctx.fillStyle = a.color;
-          ctx.fillText(a.text, a.position.x, a.position.y);
-      });
-      
-      const annotatedImage = annotatedCanvas.toDataURL('image/png');
+        // Draw highlights
+        highlights.forEach(h => {
+            ctx.strokeStyle = h.color;
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            h.points.forEach((p: {x: number, y: number}, i: number) => {
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+        });
+
+        // Draw annotations
+        ctx.globalAlpha = 1.0;
+        annotations.forEach(a => {
+            ctx.font = `bold 24px "Source Code Pro", monospace`;
+            ctx.fillStyle = a.color;
+            ctx.fillText(a.text, a.position.x, a.position.y);
+        });
+        
+        annotatedImage = annotatedCanvas.toDataURL('image/png');
+      }
 
       const elementImage1 = elementImageUrls[0];
       const elementImage2 = elementImageUrls[1];
@@ -330,12 +331,12 @@ export function MagicMarkupEditor() {
         customPrompt,
       });
       setGeneratedImage(result.editedImage);
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Generation Error:', error);
       toast({
         variant: 'destructive',
         title: 'Generation Failed',
-        description: 'The AI could not process the image. Please try again.',
+        description: error.message || 'The AI could not process the image. Please try again.',
       });
     } finally {
       setIsLoading(false);
