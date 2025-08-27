@@ -1,11 +1,13 @@
 
 'use client';
 
-import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
+import { useRef, useCallback, ChangeEvent, useEffect, useReducer } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { type Tool, type BrushSize, type CanvasObject, type Annotation, type Highlight, type SessionHistoryItem } from '@/lib/types';
 import { resizeImage, dataUrlToBlob } from '@/lib/canvas-utils';
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
+import { reducer, initialState, ActionType } from '@/lib/state';
+
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
 const BRUSH_SIZES: Record<BrushSize, number> = {
@@ -20,29 +22,31 @@ const LOCAL_STORAGE_KEY_API_KEY = 'magic-markup-api-key';
 
 export function useMagicMarkup() {
   const { toast } = useToast();
+  const [state, dispatch] = useReducer(reducer, initialState);
 
-  // State
-  const [isMounted, setIsMounted] = useState(false);
-  const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
-  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  const {
+    isMounted,
+    sessionHistory,
+    activeHistoryId,
+    apiKey,
+    baseImage,
+    elementImages,
+    elementImageUrls,
+    elementNames,
+    canvasObjects,
+    tool,
+    color,
+    brushSize,
+    customPrompt,
+    isLoading,
+    generatedImage,
+    isElementUploadOpen,
+    editingAnnotation,
+    confirmingNewImage,
+    isCameraRollOpen,
+    isApiKeyDialogOpen,
+  } = state;
 
-  const [baseImage, setBaseImage] = useState<string | null>(null);
-  const [elementImages, setElementImages] = useState<(File | null)[]>([null, null, null]);
-  const [elementImageUrls, setElementImageUrls] = useState<(string | null)[]>([null, null, null]);
-  const [elementNames, setElementNames] = useState<string[]>(['', '', '']);
-  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>([]);
-  const [tool, setTool] = useState<Tool>('highlight');
-  const [color, setColor] = useState<string>(EDITOR_COLORS[0]);
-  const [brushSize, setBrushSize] = useState<BrushSize>('medium');
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [isElementUploadOpen, setIsElementUploadOpen] = useState(false);
-  const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
-  const [confirmingNewImage, setConfirmingNewImage] = useState<string | null>(null);
-  const [isCameraRollOpen, setIsCameraRollOpen] = useState(true);
-  const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
 
   // Canvas interaction refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,6 +64,21 @@ export function useMagicMarkup() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elementFileInputRef = useRef<HTMLInputElement>(null);
   
+  // -- ACTION DISPATCHERS --
+  const setTool = (tool: Tool) => dispatch({ type: ActionType.SET_TOOL, payload: tool });
+  const setColor = (color: string) => dispatch({ type: ActionType.SET_COLOR, payload: color });
+  const setBrushSize = (brushSize: BrushSize) => dispatch({ type: ActionType.SET_BRUSH_SIZE, payload: brushSize });
+  const setCustomPrompt = (prompt: string) => dispatch({ type: ActionType.SET_CUSTOM_PROMPT, payload: prompt });
+  const setGeneratedImage = (image: string | null) => dispatch({ type: ActionType.SET_GENERATED_IMAGE, payload: image });
+  const setIsElementUploadOpen = (isOpen: boolean) => dispatch({ type: ActionType.SET_IS_ELEMENT_UPLOAD_OPEN, payload: isOpen });
+  const setEditingAnnotation = (annotation: Annotation | null) => dispatch({ type: ActionType.SET_EDITING_ANNOTATION, payload: annotation });
+  const setConfirmingNewImage = (image: string | null) => dispatch({ type: ActionType.SET_CONFIRMING_NEW_IMAGE, payload: image });
+  const setIsCameraRollOpen = (isOpen: boolean) => dispatch({ type: ActionType.SET_IS_CAMERA_ROLL_OPEN, payload: isOpen });
+  const setIsApiKeyDialogOpen = (isOpen: boolean) => dispatch({ type: ActionType.SET_IS_API_KEY_DIALOG_OPEN, payload: isOpen });
+  const setElementImages = (images: (File | null)[]) => dispatch({ type: ActionType.SET_ELEMENT_IMAGES, payload: images });
+  const setElementImageUrls = (urls: (string | null)[]) => dispatch({ type: ActionType.SET_ELEMENT_IMAGE_URLS, payload: urls });
+  const setElementNames = (names: string[]) => dispatch({ type: ActionType.SET_ELEMENT_NAMES, payload: names });
+
   // -- SESSION & HISTORY MANAGEMENT --
   
   const createNewHistoryItem = useCallback((newBaseImage: string, prompt?: string) => {
@@ -74,40 +93,15 @@ export function useMagicMarkup() {
     };
     return newItem;
   }, []);
+  
+  const loadStateFromHistoryItem = (item: SessionHistoryItem | null) => {
+    dispatch({ type: ActionType.LOAD_STATE_FROM_HISTORY, payload: item });
+  }
 
   const startNewSession = useCallback((newBaseImage: string) => {
     const newItem = createNewHistoryItem(newBaseImage);
-    const newHistory = [...sessionHistory, newItem];
-    setSessionHistory(newHistory);
-    setActiveHistoryId(newItem.id);
-    loadStateFromHistoryItem(newItem);
-    // When starting a new session, clear annotations and elements, but keep the prompt.
-    setCanvasObjects([]);
-    setElementImageUrls([null, null, null]);
-    setElementImages([null, null, null]);
-    setElementNames(['','','']);
-
-  }, [createNewHistoryItem, sessionHistory]);
-  
-  const loadStateFromHistoryItem = (item: SessionHistoryItem | null) => {
-    if (!item) {
-      setBaseImage(null);
-      setCanvasObjects([]);
-      setElementImageUrls([null, null, null]);
-      setElementImages([null, null, null]);
-      setElementNames(['', '', '']);
-      setCustomPrompt('');
-      setActiveHistoryId(null);
-      return;
-    }
-    setBaseImage(item.baseImage);
-    setCanvasObjects(item.annotations);
-    setElementImageUrls(item.elementImageUrls || [null, null, null]);
-    setElementImages([null, null, null]); // Files can't be stored, need re-upload
-    setElementNames(item.elementNames || ['', '', '']);
-    setCustomPrompt(item.prompt || '');
-    setActiveHistoryId(item.id);
-  }
+    dispatch({ type: ActionType.START_NEW_SESSION, payload: newItem });
+  }, [createNewHistoryItem]);
   
   const handleConfirmNewImage = (confirmed: boolean) => {
     if (confirmed && confirmingNewImage) {
@@ -201,19 +195,19 @@ export function useMagicMarkup() {
   const undo = useCallback(() => {
     if (historyPointer.current > 0) {
       historyPointer.current--;
-      setCanvasObjects(history.current[historyPointer.current]);
+      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: history.current[historyPointer.current]});
     }
   }, []);
 
   const redo = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
       historyPointer.current++;
-      setCanvasObjects(history.current[historyPointer.current]);
+      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: history.current[historyPointer.current]});
     }
   }, []);
 
   const handleClear = () => {
-    setCanvasObjects([]);
+    dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: []});
     history.current = [[]];
     historyPointer.current = 0;
   };
@@ -327,23 +321,23 @@ export function useMagicMarkup() {
 
         if (doubleClick && hitObject?.type === 'annotation') {
           setEditingAnnotation(hitObject as Annotation);
-          setCanvasObjects(prev => prev.map(obj => obj.id === hitObject.id ? obj : { ...obj, selected: false }));
+          dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.map(obj => obj.id === hitObject.id ? obj : { ...obj, selected: false }) });
           return;
         }
         
-        setCanvasObjects(prev => prev.map(obj => {
+        dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.map(obj => {
           const isSelected = obj.id === hitObject?.id;
           if (obj.selected !== isSelected) {
               return { ...obj, selected: isSelected };
           }
           return obj;
-        }));
+        })});
 
         if (hitObject && hitObject.type === 'annotation') {
             interactionState.current = { 
               ...interactionState.current,
               isDragging: true, 
-              dragOffset: { x: x - hitObject.position.x, y: y - hitObject.position.y }
+              dragOffset: { x: x - (hitObject as Annotation).position.x, y: y - (hitObject as Annotation).position.y }
             };
         }
         return;
@@ -359,7 +353,7 @@ export function useMagicMarkup() {
           points: [{ x, y }], 
           strokeWidth: BRUSH_SIZES[brushSize] * (canvasRef.current!.width / MAX_DIMENSION) 
         };
-        setCanvasObjects(prev => [...prev, newHighlight]);
+        dispatch({ type: ActionType.ADD_CANVAS_OBJECT, payload: newHighlight });
     } else if (tool === 'erase') {
         erase(x, y);
     }
@@ -367,20 +361,7 @@ export function useMagicMarkup() {
 
   const handleSaveAnnotation = (text: string, id: string, newPosition?: {x: number, y: number}) => {
     if (text) {
-      const existing = canvasObjects.find(o => o.id === id);
-      if (existing) {
-        setCanvasObjects(prev => prev.map(o => o.id === id ? { ...o, text, position: newPosition || (o as Annotation).position, width: undefined, height: undefined } as Annotation : o));
-      } else {
-        const newAnnotation: Annotation = {
-          id: id,
-          type: 'annotation',
-          color: color,
-          text: text,
-          position: newPosition || {x: 0, y: 0},
-          fontSize: BRUSH_SIZES[brushSize] * 4 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)
-        };
-        setCanvasObjects(prev => [...prev, newAnnotation]);
-      }
+      dispatch({ type: ActionType.SAVE_ANNOTATION, payload: { id, text, position: newPosition, color, brushSize, canvasWidth: canvasRef.current?.width } });
       saveHistory();
     }
     setEditingAnnotation(null);
@@ -389,7 +370,7 @@ export function useMagicMarkup() {
   const erase = (x: number, y: number) => {
     const hitObject = hitTest(x, y);
     if(hitObject) {
-      setCanvasObjects(prev => prev.filter(obj => obj.id !== hitObject.id));
+      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.filter(obj => obj.id !== hitObject.id) });
     }
   };
 
@@ -401,24 +382,17 @@ export function useMagicMarkup() {
 
     if (isDragging && tool === 'select') {
       const { dragOffset } = interactionState.current;
-      setCanvasObjects(prev => prev.map(obj => {
+      dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.map(obj => {
           if (obj.selected && obj.type === 'annotation' && dragOffset) {
               return { ...obj, position: { x: x - dragOffset.x, y: y - dragOffset.y } };
           }
           return obj;
-      }));
+      })});
       return;
     }
 
     if (tool === 'highlight' && isDrawing) {
-        setCanvasObjects(prev => {
-            const newObjects = [...prev];
-            const lastObj = newObjects[newObjects.length - 1] as Highlight;
-            if (lastObj && lastObj.type === 'highlight') {
-              lastObj.points.push({x,y});
-            }
-            return newObjects;
-        });
+        dispatch({ type: ActionType.UPDATE_LAST_HIGHLIGHT_POINT, payload: {x,y} });
     } else if (tool === 'erase' && isDrawing) {
         erase(x, y);
     }
@@ -460,7 +434,7 @@ export function useMagicMarkup() {
       return;
     }
 
-    setIsLoading(true);
+    dispatch({ type: ActionType.SET_IS_LOADING, payload: true });
 
     try {
       let annotatedImage: string | undefined = undefined;
@@ -529,7 +503,7 @@ export function useMagicMarkup() {
         description: error.message || 'The AI could not process the image. Please try again.',
       });
     } finally {
-      setIsLoading(false);
+      dispatch({ type: ActionType.SET_IS_LOADING, payload: false });
     }
   };
 
@@ -580,16 +554,7 @@ export function useMagicMarkup() {
   };
 
   const handleDeleteHistoryItem = (idToDelete: string) => {
-    const newHistory = sessionHistory.filter(item => item.id !== idToDelete)
-    setSessionHistory(newHistory);
-    
-    if (activeHistoryId === idToDelete) {
-      if (newHistory.length > 0) {
-        loadStateFromHistoryItem(newHistory[newHistory.length - 1]);
-      } else {
-        loadStateFromHistoryItem(null);
-      }
-    }
+    dispatch({ type: ActionType.DELETE_HISTORY_ITEM, payload: idToDelete });
   };
 
   const handleNewSession = () => {
@@ -643,7 +608,7 @@ export function useMagicMarkup() {
       const hasSelection = canvasObjects.some(o => o.selected);
       if (hasSelection) {
         e.preventDefault();
-        setCanvasObjects(prev => prev.filter(o => !o.selected));
+        dispatch({ type: ActionType.SET_CANVAS_OBJECTS, payload: canvasObjects.filter(o => !o.selected) });
         saveHistory();
       }
     }
@@ -657,23 +622,23 @@ export function useMagicMarkup() {
   };
 
   const handleSaveApiKey = (key: string) => {
-    setApiKey(key);
+    dispatch({ type: ActionType.SET_API_KEY, payload: key });
     localStorage.setItem(LOCAL_STORAGE_KEY_API_KEY, key);
     setIsApiKeyDialogOpen(false);
     toast({ title: "API Key saved!"});
   }
 
   useEffect(() => {
-    setIsMounted(true);
+    dispatch({ type: ActionType.SET_IS_MOUNTED, payload: true });
     try {
       const savedKey = localStorage.getItem(LOCAL_STORAGE_KEY_API_KEY);
-      if(savedKey) setApiKey(savedKey);
+      if(savedKey) dispatch({ type: ActionType.SET_API_KEY, payload: savedKey });
 
       const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY_SESSION);
       if (savedSession) {
         const { history, activeId } = JSON.parse(savedSession);
         if (history && Array.isArray(history) && history.length > 0) {
-          setSessionHistory(history);
+          dispatch({ type: ActionType.SET_SESSION_HISTORY, payload: history });
           const activeItem = history.find((item: SessionHistoryItem) => item.id === activeId) || history[history.length -1];
           loadStateFromHistoryItem(activeItem);
         }
@@ -742,6 +707,7 @@ export function useMagicMarkup() {
   }, [canvasObjects, redrawCanvas]);
 
   return {
+    // State
     isMounted,
     sessionHistory,
     activeHistoryId,
@@ -750,29 +716,40 @@ export function useMagicMarkup() {
     elementImageUrls,
     canvasObjects,
     tool,
-    setTool,
     color,
-    setColor,
     brushSize,
-    setBrushSize,
     customPrompt,
-    setCustomPrompt,
     isLoading,
     generatedImage,
-    setGeneratedImage,
     isElementUploadOpen,
-    setIsElementUploadOpen,
     editingAnnotation,
-    setEditingAnnotation,
     confirmingNewImage,
-    setConfirmingNewImage,
     isCameraRollOpen,
-    setIsCameraRollOpen,
-    isApiKeyDialogOpen, 
-    setIsApiKeyDialogOpen,
+    isApiKeyDialogOpen,
+    elementImages,
+    elementNames,
+
+    // Refs
     canvasRef,
     fileInputRef,
     elementFileInputRef,
+
+    // State Setters (dispatchers)
+    setTool,
+    setColor,
+    setBrushSize,
+    setCustomPrompt,
+    setGeneratedImage,
+    setIsElementUploadOpen,
+    setEditingAnnotation,
+    setConfirmingNewImage,
+    setIsCameraRollOpen,
+    setIsApiKeyDialogOpen,
+    setElementImages,
+    setElementImageUrls,
+    setElementNames,
+
+    // Functions
     loadStateFromHistoryItem,
     handleConfirmNewImage,
     handleBaseImageUpload,
@@ -792,12 +769,11 @@ export function useMagicMarkup() {
     handleDeleteHistoryItem,
     handleNewSession,
     handlePromptKeyDown,
-    elementImages,
-    setElementImages,
-    setElementImageUrls,
-    elementNames,
-    setElementNames,
+    handleSaveApiKey,
+
+    // Constants
     EDITOR_COLORS,
-    handleSaveApiKey
   };
 }
+
+    

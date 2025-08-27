@@ -37,7 +37,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ColorPicker } from './color-picker';
 import { IconButton } from './icon-button';
 import { BrushSize, Tool } from '@/lib/types';
-import { useMagicMarkup } from '@/hooks/useMagicMarkup';
+import { useMagicMarkup } from '@/hooks/use-magic-markup';
 
 type ToolbarProps = ReturnType<typeof useMagicMarkup>;
 

@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import { UploadCloud } from 'lucide-react';
-import { useMagicMarkup } from '@/hooks/useMagicMarkup';
+import { useMagicMarkup } from '@/hooks/use-magic-markup';
 import { Button } from '@/components/ui/button';
 import { Header } from './header';
 import { HistorySidebar } from './history-sidebar';
