@@ -265,9 +265,17 @@ export function MagicMarkupEditor() {
         const ctx = canvasRef.current?.getContext('2d');
         if (!ctx) return true;
         ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
-        const textWidth = ctx.measureText(a.text).width;
+        const textMetrics = ctx.measureText(a.text);
+        const textWidth = textMetrics.width;
         const textHeight = a.fontSize;
-        const isInside = x > a.position.x && x < a.position.x + textWidth && y > a.position.y - textHeight && y < a.position.y;
+        
+        const isInside = (
+            x > a.position.x &&
+            x < a.position.x + textWidth &&
+            y > a.position.y - textHeight &&
+            y < a.position.y
+        );
+
         if(isInside) changed = true;
         return !isInside;
     });
@@ -560,9 +568,15 @@ export function MagicMarkupEditor() {
                         <div className="flex items-center gap-2">
                             <Paintbrush className="size-5 text-muted-foreground" />
                             <ToggleGroup type="single" value={brushSize} onValueChange={(value) => value && setBrushSize(value as BrushSize)}>
-                                <ToggleGroupItem value="small" aria-label="Small">S</ToggleGroupItem>
-                                <ToggleGroupItem value="medium" aria-label="Medium">M</ToggleGroupItem>
-                                <ToggleGroupItem value="large" aria-label="Large">L</ToggleGroupItem>
+                                <ToggleGroupItem value="small" aria-label="Small">
+                                  <div className="bg-foreground rounded-full size-2" />
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="medium" aria-label="Medium">
+                                  <div className="bg-foreground rounded-full size-3" />
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="large" aria-label="Large">
+                                  <div className="bg-foreground rounded-full size-4" />
+                                </ToggleGroupItem>
                             </ToggleGroup>
                         </div>
                     </div>
@@ -668,5 +682,3 @@ export function MagicMarkupEditor() {
     </div>
   );
 }
-
-    
