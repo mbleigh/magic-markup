@@ -105,12 +105,12 @@ const generateImageEditFlow = ai.defineFlow(
       promptInput.customPrompt = input.customPrompt;
     }
 
-    const {media} = await imageEditPrompt(promptInput);
+    const {output} = await imageEditPrompt(promptInput);
 
-    if (!media) {
+    if (!output?.editedImage) {
       throw new Error('No edited image was generated.');
     }
 
-    return {editedImage: media.url!};
+    return {editedImage: output.editedImage};
   }
 );

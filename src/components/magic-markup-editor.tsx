@@ -18,6 +18,7 @@ import {
   Undo2,
   UploadCloud,
   X,
+  Plus,
 } from 'lucide-react';
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ import {
   DialogTitle,
   DialogClose,
   DialogFooter,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
@@ -58,6 +60,7 @@ export function MagicMarkupEditor() {
   const [customPrompt, setCustomPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isElementUploadOpen, setIsElementUploadOpen] = useState(false);
 
   // Canvas interaction refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,7 +70,7 @@ export function MagicMarkupEditor() {
   const historyPointer = useRef(-1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const elementFileInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const elementFileInputRef = useRef<HTMLInputElement>(null);
 
   const readFileAsDataURL = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -78,23 +81,13 @@ export function MagicMarkupEditor() {
     });
   };
 
-  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>, index: number | null = null) => {
+  const handleBaseImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       const url = await readFileAsDataURL(file);
-      if (index !== null) {
-        const newImages = [...elementImages];
-        newImages[index] = file;
-        setElementImages(newImages);
-
-        const newUrls = [...elementImageUrls];
-        newUrls[index] = url;
-        setElementImageUrls(newUrls);
-      } else {
-        setBaseImage(url);
-      }
+      setBaseImage(url);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -103,6 +96,40 @@ export function MagicMarkupEditor() {
       });
     }
   };
+
+  const handleElementImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await addElementImage(file);
+  };
+  
+  const addElementImage = async (file: File) => {
+    const emptyIndex = elementImageUrls.findIndex(el => el === null);
+    if (emptyIndex === -1) {
+      toast({ variant: 'destructive', title: 'Cannot add more elements', description: 'You can only add up to 3 elements.' });
+      return;
+    }
+    
+    try {
+      const url = await readFileAsDataURL(file);
+      const newImages = [...elementImages];
+      newImages[emptyIndex] = file;
+      setElementImages(newImages);
+
+      const newUrls = [...elementImageUrls];
+      newUrls[emptyIndex] = url;
+      setElementImageUrls(newUrls);
+      setIsElementUploadOpen(false);
+      toast({ title: `Element ${emptyIndex + 1} added.` });
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Error reading file',
+        description: 'Could not read the selected image file.',
+      });
+    }
+  };
+
 
   const saveHistory = () => {
     // Clear redo stack
@@ -155,9 +182,9 @@ export function MagicMarkupEditor() {
         const img = new window.Image();
         img.src = baseImage;
         img.onload = () => {
-            if (canvas.width !== img.width || canvas.height !== img.height) {
-              canvas.width = img.width;
-              canvas.height = img.height;
+            if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
             }
             ctx.drawImage(img, 0, 0);
 
@@ -297,59 +324,55 @@ export function MagicMarkupEditor() {
   
   const handleRemoveElementImage = (index: number) => {
     const newImages = [...elementImages];
-    newImages[index] = null;
+    newImages.splice(index, 1);
+    newImages.push(null);
     setElementImages(newImages);
 
     const newUrls = [...elementImageUrls];
-    newUrls[index] = null;
+    newUrls.splice(index, 1);
+    newUrls.push(null);
     setElementImageUrls(newUrls);
     
     const newNames = [...elementNames];
-    newNames[index] = '';
+    newNames.splice(index, 1);
+    newNames.push('');
     setElementNames(newNames);
   };
-
+  
   const handlePaste = useCallback(async (event: ClipboardEvent) => {
     const items = event.clipboardData?.items;
     if (!items) return;
 
     for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') === -1) continue;
+      if (items[i].type.indexOf('image') === -1) continue;
 
-        const file = items[i].getAsFile();
-        if (!file) continue;
+      const file = items[i].getAsFile();
+      if (!file) continue;
 
+      if (isElementUploadOpen) {
+        await addElementImage(file);
+      } else {
         try {
-            const url = await readFileAsDataURL(file);
-            if (!baseImage) {
-                setBaseImage(url);
-                toast({ title: 'Base image pasted!' });
-            } else {
-                const emptyIndex = elementImageUrls.findIndex(el => el === null);
-                if (emptyIndex !== -1) {
-                    const newImages = [...elementImages];
-                    newImages[emptyIndex] = file;
-                    setElementImages(newImages);
-
-                    const newUrls = [...elementImageUrls];
-                    newUrls[emptyIndex] = url;
-                    setElementImageUrls(newUrls);
-                    toast({ title: `Element ${emptyIndex + 1} image pasted!` });
-                } else {
-                    toast({ variant: 'destructive', title: 'All element slots are full.' });
-                }
-            }
+          const url = await readFileAsDataURL(file);
+          if (!baseImage) {
+            setBaseImage(url);
+            toast({ title: 'Base image pasted!' });
+          } else {
+            toast({ variant: 'destructive', title: 'Base image already present', description: 'You can paste an element by opening the element upload dialog.' });
+          }
         } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Error reading pasted image',
-                description: 'Could not read the image from the clipboard.',
-            });
+          toast({
+            variant: 'destructive',
+            title: 'Error reading pasted image',
+            description: 'Could not read the image from the clipboard.',
+          });
         }
-        // Stop after handling the first image
-        break;
+      }
+      // Stop after handling the first image
+      break;
     }
-  }, [baseImage, elementImageUrls, elementImages, toast]);
+  }, [baseImage, toast, isElementUploadOpen]);
+
 
   useEffect(() => {
       window.addEventListener('paste', handlePaste);
@@ -370,38 +393,7 @@ export function MagicMarkupEditor() {
   return (
     <div className="flex h-screen flex-col">
       <Header />
-      <div className="grid flex-1 grid-cols-1 md:grid-cols-[300px_1fr_350px]">
-        {/* Left Sidebar - Elements */}
-        <aside className="hidden flex-col gap-4 border-r bg-card p-4 md:flex">
-          <h2 className="font-headline text-lg font-semibold">Elements</h2>
-          <p className="text-sm text-muted-foreground">Add up to 3 element images to reference in your edits.</p>
-          <div className="flex flex-col gap-4">
-            {[0, 1, 2].map(i => (
-              <div key={i}>
-                <Label htmlFor={`element-name-${i}`} className="mb-2 block">Element {i+1}</Label>
-                <div className="flex gap-2">
-                    {elementImageUrls[i] ? (
-                         <div className="relative size-20 shrink-0 rounded-lg">
-                            <Image src={elementImageUrls[i]!} alt={`Element ${i+1}`} layout="fill" objectFit="cover" className="rounded-md" />
-                            <Button variant="destructive" size="icon" className="absolute -right-2 -top-2 size-6 rounded-full" onClick={() => handleRemoveElementImage(i)}><X className="size-4"/></Button>
-                         </div>
-                    ) : (
-                        <button onClick={() => elementFileInputRefs[i].current?.click()} className="flex size-20 shrink-0 items-center justify-center rounded-lg border-2 border-dashed transition-colors hover:border-primary">
-                            <UploadCloud className="size-8 text-muted-foreground" />
-                        </button>
-                    )}
-                    <Input id={`element-name-${i}`} placeholder="Custom name (optional)" value={elementNames[i]} onChange={(e) => {
-                        const newNames = [...elementNames];
-                        newNames[i] = e.target.value;
-                        setElementNames(newNames);
-                    }}/>
-                    <input type="file" accept="image/*" className="hidden" ref={elementFileInputRefs[i]} onChange={(e) => handleFileUpload(e, i)} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
-
+      <div className="grid flex-1 grid-cols-1 md:grid-cols-[1fr_350px]">
         {/* Center - Editor */}
         <main className="flex flex-col items-center justify-center bg-background/50 p-4">
           {baseImage ? (
@@ -424,7 +416,7 @@ export function MagicMarkupEditor() {
                 <Button className="mt-4" onClick={() => fileInputRef.current?.click()}>
                   Browse Files
                 </Button>
-                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={(e) => handleFileUpload(e)} />
+                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleBaseImageUpload} />
               </div>
             </div>
           )}
@@ -454,6 +446,52 @@ export function MagicMarkupEditor() {
                         <Palette className="size-5 text-muted-foreground" />
                         <ColorPicker colors={EDITOR_COLORS} selectedColor={color} onColorChange={setColor} />
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg">Elements</CardTitle>
+                     <Dialog open={isElementUploadOpen} onOpenChange={setIsElementUploadOpen}>
+                        <DialogTrigger asChild>
+                           <Button variant="ghost" size="icon" disabled={elementImageUrls.every(url => url !== null)}>
+                              <Plus className="size-5" />
+                           </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                             <DialogHeader>
+                                <DialogTitle>Add Element Image</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-col items-center justify-center gap-4 py-8">
+                                <Button onClick={() => elementFileInputRef.current?.click()} className="w-full">
+                                    <UploadCloud className="mr-2" />
+                                    Upload from computer
+                                </Button>
+                                <p className="text-sm text-muted-foreground">or paste image (Cmd+V)</p>
+                                <input type="file" accept="image/*" className="hidden" ref={elementFileInputRef} onChange={handleElementImageUpload} />
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </CardHeader>
+                <CardContent>
+                    {elementImageUrls.some(url => url !== null) ? (
+                        <div className="grid grid-cols-3 gap-2">
+                            {elementImageUrls.map((url, i) =>
+                                url ? (
+                                    <div key={i} className="relative aspect-square w-full">
+                                        <Image src={url} alt={`Element ${i + 1}`} layout="fill" objectFit="cover" className="rounded-md" />
+                                        <Button variant="destructive" size="icon" className="absolute -right-2 -top-2 size-6 rounded-full" onClick={() => handleRemoveElementImage(i)}>
+                                            <X className="size-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                  <div key={i} />
+                                )
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No elements added yet.</p>
+                    )}
                 </CardContent>
             </Card>
 
@@ -510,5 +548,3 @@ export function MagicMarkupEditor() {
     </div>
   );
 }
-
-    
