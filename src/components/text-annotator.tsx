@@ -125,6 +125,7 @@ export function TextAnnotator({
           fontSize: `${annotation.fontSize}px`,
           lineHeight: 1.2,
           minHeight: '40px',
+          cursor: 'text',
         }}
       />
       <div className="flex justify-end gap-2">
