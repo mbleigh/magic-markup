@@ -204,8 +204,11 @@ export function MagicMarkupEditor() {
       // Redraw annotations
       ctx.globalAlpha = 1.0;
       annotations.forEach(a => {
-          ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
+          ctx.font = `bold ${a.fontSize}px "Patrick Hand", cursive`;
           ctx.fillStyle = a.color;
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = a.fontSize / 15;
+          ctx.strokeText(a.text, a.position.x, a.position.y);
           ctx.fillText(a.text, a.position.x, a.position.y);
       });
     }
@@ -287,7 +290,7 @@ export function MagicMarkupEditor() {
     const filteredAnnotations = annotations.filter(a => {
         const ctx = canvasRef.current?.getContext('2d');
         if (!ctx) return true;
-        ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
+        ctx.font = `bold ${a.fontSize}px "Patrick Hand", cursive`;
         const textMetrics = ctx.measureText(a.text);
         const textWidth = textMetrics.width;
         const textHeight = a.fontSize;
@@ -381,8 +384,11 @@ export function MagicMarkupEditor() {
         // Draw annotations
         ctx.globalAlpha = 1.0;
         annotations.forEach(a => {
-            ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
+            ctx.font = `bold ${a.fontSize}px "Patrick Hand", cursive`;
             ctx.fillStyle = a.color;
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = a.fontSize / 15;
+            ctx.strokeText(a.text, a.position.x, a.position.y);
             ctx.fillText(a.text, a.position.x, a.position.y);
         });
         

@@ -126,7 +126,7 @@ export function TextAnnotator({
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Add annotation..."
-        className="font-code"
+        className="font-marker"
         style={{
           color: color,
           fontSize: `${fontSize}px`,
