@@ -30,7 +30,7 @@ import { type Tool, type BrushSize } from '@/lib/types';
 import { ColorPicker } from './color-picker';
 import { Header } from './header';
 import { IconButton } from './icon-button';
-import { dataUrlToBlob } from '@/lib/canvas-utils';
+import { dataUrlToBlob, resizeImage } from '@/lib/canvas-utils';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,7 @@ const BRUSH_SIZES: Record<BrushSize, number> = {
   medium: 10,
   large: 20,
 };
+const MAX_DIMENSION = 1000;
 
 export function MagicMarkupEditor() {
   const { toast } = useToast();
@@ -96,7 +97,8 @@ export function MagicMarkupEditor() {
 
     try {
       const url = await readFileAsDataURL(file);
-      setBaseImage(url);
+      const resizedUrl = await resizeImage(url, MAX_DIMENSION, MAX_DIMENSION);
+      setBaseImage(resizedUrl);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -121,12 +123,14 @@ export function MagicMarkupEditor() {
     
     try {
       const url = await readFileAsDataURL(file);
+      const resizedUrl = await resizeImage(url, MAX_DIMENSION, MAX_DIMENSION);
+
       const newImages = [...elementImages];
       newImages[emptyIndex] = file;
       setElementImages(newImages);
 
       const newUrls = [...elementImageUrls];
-      newUrls[emptyIndex] = url;
+      newUrls[emptyIndex] = resizedUrl;
       setElementImageUrls(newUrls);
       setIsElementUploadOpen(false);
       toast({ title: `Element ${emptyIndex + 1} added.` });
@@ -248,7 +252,7 @@ export function MagicMarkupEditor() {
     lastPosition.current = { x, y };
 
     if (tool === 'highlight') {
-        setHighlights(prev => [...prev, { id: Date.now().toString(), color, points: [{x, y}], strokeWidth: BRUSH_SIZES[brushSize] }]);
+        setHighlights(prev => [...prev, { id: Date.now().toString(), color, points: [{x, y}], strokeWidth: BRUSH_SIZES[brushSize] * (canvas.width / MAX_DIMENSION) }]);
     } else if (tool === 'erase') {
         erase(x, y);
     }
@@ -267,7 +271,7 @@ export function MagicMarkupEditor() {
         color,
         text,
         position: { x, y },
-        fontSize: BRUSH_SIZES[brushSize] * 2.5
+        fontSize: BRUSH_SIZES[brushSize] * 2.5 * (canvas.width / MAX_DIMENSION)
       }]);
       saveHistory();
     }
@@ -480,8 +484,9 @@ export function MagicMarkupEditor() {
       } else {
         try {
           const url = await readFileAsDataURL(file);
+          const resizedUrl = await resizeImage(url, MAX_DIMENSION, MAX_DIMENSION);
           if (!baseImage) {
-            setBaseImage(url);
+            setBaseImage(resizedUrl);
             toast({ title: 'Base image pasted!' });
           } else {
             toast({ variant: 'destructive', title: 'Base image already present', description: 'You can paste an element by opening the element upload dialog.' });
@@ -564,7 +569,7 @@ export function MagicMarkupEditor() {
                     onSave={handleSaveAnnotation}
                     onCancel={() => setIsAnnotating(false)}
                     color={color}
-                    fontSize={BRUSH_SIZES[brushSize] * 2.5}
+                    fontSize={BRUSH_SIZES[brushSize] * 2.5 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)}
                     containerRef={canvasContainerRef}
                    />
                  )}
