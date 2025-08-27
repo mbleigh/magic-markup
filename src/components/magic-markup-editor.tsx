@@ -17,6 +17,7 @@ import {
   UploadCloud,
   X,
   Plus,
+  Paintbrush,
 } from 'lucide-react';
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { type CanvasObject, type Tool } from '@/lib/types';
+import { type CanvasObject, type Tool, type BrushSize } from '@/lib/types';
 import { ColorPicker } from './color-picker';
 import { Header } from './header';
 import { IconButton } from './icon-button';
@@ -39,8 +40,14 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
+const BRUSH_SIZES: Record<BrushSize, number> = {
+  small: 5,
+  medium: 10,
+  large: 20,
+};
 
 export function MagicMarkupEditor() {
   const { toast } = useToast();
@@ -54,6 +61,7 @@ export function MagicMarkupEditor() {
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [tool, setTool] = useState<Tool>('highlight');
   const [color, setColor] = useState<string>(EDITOR_COLORS[0]);
+  const [brushSize, setBrushSize] = useState<BrushSize>('medium');
   const [customPrompt, setCustomPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -63,7 +71,7 @@ export function MagicMarkupEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastPosition = useRef<{ x: number; y: number } | null>(null);
-  const history = useRef<CanvasObject[][]>([]);
+  const history = useRef<(typeof highlights | typeof annotations)[]>([]);
   const historyPointer = useRef(-1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,43 +136,41 @@ export function MagicMarkupEditor() {
   };
 
 
-  const saveHistory = () => {
-    // Clear redo stack
+  const saveHistory = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
-      history.current = history.current.slice(0, historyPointer.current + 1);
+      history.current.splice(historyPointer.current + 1);
     }
-    // For simplicity, we just save a snapshot of highlights and annotations
-    history.current.push([...highlights, ...annotations]);
+    const snapshot = {
+      highlights: JSON.parse(JSON.stringify(highlights)),
+      annotations: JSON.parse(JSON.stringify(annotations)),
+    };
+    history.current.push(snapshot as any);
     historyPointer.current++;
-  };
-  
-  const undo = () => {
+  }, [highlights, annotations]);
+
+  const undo = useCallback(() => {
     if (historyPointer.current > 0) {
       historyPointer.current--;
-      const prevState = history.current[historyPointer.current];
-      setHighlights(prevState.filter(o => 'points' in o));
-      setAnnotations(prevState.filter(o => 'text' in o));
-      redrawCanvas();
+      const snapshot = history.current[historyPointer.current] as any;
+      setHighlights(snapshot.highlights);
+      setAnnotations(snapshot.annotations);
     }
-  }
+  }, []);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     if (historyPointer.current < history.current.length - 1) {
       historyPointer.current++;
-      const nextState = history.current[historyPointer.current];
-      setHighlights(nextState.filter(o => 'points' in o));
-      setAnnotations(nextState.filter(o => 'text' in o));
-      redrawCanvas();
+      const snapshot = history.current[historyPointer.current] as any;
+      setHighlights(snapshot.highlights);
+      setAnnotations(snapshot.annotations);
     }
-  }
+  }, []);
 
   const handleClear = () => {
     setHighlights([]);
     setAnnotations([]);
-    history.current = [];
-    historyPointer.current = -1;
-    saveHistory();
-    redrawCanvas();
+    history.current = [{ highlights: [], annotations: [] } as any];
+    historyPointer.current = 0;
   }
   
   const redrawCanvas = useCallback((forExport = false) => {
@@ -179,7 +185,7 @@ export function MagicMarkupEditor() {
       // Redraw highlights
       highlights.forEach(h => {
           ctx.strokeStyle = h.color;
-          ctx.lineWidth = 10;
+          ctx.lineWidth = h.strokeWidth;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.globalAlpha = 0.5;
@@ -194,7 +200,7 @@ export function MagicMarkupEditor() {
       // Redraw annotations
       ctx.globalAlpha = 1.0;
       annotations.forEach(a => {
-          ctx.font = `bold 24px "Source Code Pro", monospace`;
+          ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
           ctx.fillStyle = a.color;
           ctx.fillText(a.text, a.position.x, a.position.y);
       });
@@ -225,19 +231,52 @@ export function MagicMarkupEditor() {
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     
+    isDrawing.current = true;
+    lastPosition.current = { x, y };
+
     if (tool === 'highlight') {
-        isDrawing.current = true;
-        setHighlights(prev => [...prev, { id: Date.now().toString(), color, points: [{x, y}] }]);
+        setHighlights(prev => [...prev, { id: Date.now().toString(), color, points: [{x, y}], strokeWidth: BRUSH_SIZES[brushSize] }]);
     } else if (tool === 'annotate') {
         const text = prompt('Enter annotation text:');
         if (text) {
-            setAnnotations(prev => [...prev, { id: Date.now().toString(), color, text, position: {x, y} }]);
+            setAnnotations(prev => [...prev, { id: Date.now().toString(), color, text, position: {x, y}, fontSize: BRUSH_SIZES[brushSize] * 2 }]);
             saveHistory();
         }
+        isDrawing.current = false;
     } else if (tool === 'erase') {
-        isDrawing.current = true;
+        erase(x, y);
     }
-    lastPosition.current = { x, y };
+  };
+
+  const erase = (x: number, y: number) => {
+    const eraseRadius = BRUSH_SIZES[brushSize];
+    let changed = false;
+
+    const filteredHighlights = highlights.filter(h => {
+        const isNear = h.points.some((p: { x: number, y: number }) => {
+            const dist = Math.hypot(p.x - x, p.y - y);
+            return dist < eraseRadius + h.strokeWidth;
+        });
+        if(isNear) changed = true;
+        return !isNear;
+    });
+
+    const filteredAnnotations = annotations.filter(a => {
+        const ctx = canvasRef.current?.getContext('2d');
+        if (!ctx) return true;
+        ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
+        const textWidth = ctx.measureText(a.text).width;
+        const textHeight = a.fontSize;
+        const isInside = x > a.position.x && x < a.position.x + textWidth && y > a.position.y - textHeight && y < a.position.y;
+        if(isInside) changed = true;
+        return !isInside;
+    });
+
+    if(changed) {
+      setHighlights(filteredHighlights);
+      setAnnotations(filteredAnnotations);
+      saveHistory();
+    }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -254,6 +293,8 @@ export function MagicMarkupEditor() {
             newHighlights[newHighlights.length - 1].points.push({x,y});
             return newHighlights;
         });
+    } else if (tool === 'erase') {
+        erase(x, y);
     }
   };
 
@@ -263,7 +304,6 @@ export function MagicMarkupEditor() {
     }
     isDrawing.current = false;
   };
-
 
   const handleGenerate = async () => {
     if (!baseImage) {
@@ -295,7 +335,7 @@ export function MagicMarkupEditor() {
         // Draw highlights
         highlights.forEach(h => {
             ctx.strokeStyle = h.color;
-            ctx.lineWidth = 10;
+            ctx.lineWidth = h.strokeWidth;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.globalAlpha = 0.5;
@@ -310,7 +350,7 @@ export function MagicMarkupEditor() {
         // Draw annotations
         ctx.globalAlpha = 1.0;
         annotations.forEach(a => {
-            ctx.font = `bold 24px "Source Code Pro", monospace`;
+            ctx.font = `bold ${a.fontSize}px "Source Code Pro", monospace`;
             ctx.fillStyle = a.color;
             ctx.fillText(a.text, a.position.x, a.position.y);
         });
@@ -417,12 +457,14 @@ export function MagicMarkupEditor() {
     }
   }, [baseImage, toast, isElementUploadOpen, addElementImage]);
 
-
   useEffect(() => {
-      window.addEventListener('paste', handlePaste);
-      return () => {
-          window.removeEventListener('paste', handlePaste);
-      };
+    history.current.push({ highlights: [], annotations: [] } as any);
+    historyPointer.current = 0;
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+        window.removeEventListener('paste', handlePaste);
+    };
   }, [handlePaste]);
 
   useEffect(() => {
@@ -434,8 +476,9 @@ export function MagicMarkupEditor() {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         redrawCanvas();
+        saveHistory();
     }
-  }, [baseImage, redrawCanvas]);
+  }, [baseImage, redrawCanvas, saveHistory]);
 
   useEffect(() => {
     redrawCanvas();
@@ -463,7 +506,7 @@ export function MagicMarkupEditor() {
                  />
                  <canvas
                     ref={canvasRef}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain cursor-crosshair"
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
@@ -509,9 +552,19 @@ export function MagicMarkupEditor() {
                       </div>
                     </div>
                     <Separator />
-                    <div className="flex items-center gap-2">
-                        <Palette className="size-5 text-muted-foreground" />
-                        <ColorPicker colors={EDITOR_COLORS} selectedColor={color} onColorChange={setColor} />
+                     <div className="grid gap-2">
+                        <div className="flex items-center gap-2">
+                            <Palette className="size-5 text-muted-foreground" />
+                            <ColorPicker colors={EDITOR_COLORS} selectedColor={color} onColorChange={setColor} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Paintbrush className="size-5 text-muted-foreground" />
+                            <ToggleGroup type="single" value={brushSize} onValueChange={(value) => value && setBrushSize(value as BrushSize)}>
+                                <ToggleGroupItem value="small" aria-label="Small">S</ToggleGroupItem>
+                                <ToggleGroupItem value="medium" aria-label="Medium">M</ToggleGroupItem>
+                                <ToggleGroupItem value="large" aria-label="Large">L</ToggleGroupItem>
+                            </ToggleGroup>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -615,3 +668,5 @@ export function MagicMarkupEditor() {
     </div>
   );
 }
+
+    

@@ -64,7 +64,6 @@ const imageEditPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash-image-preview',
   config: {responseModalities: ['TEXT', 'IMAGE']},
   input: {schema: GenerateImageEditInputSchema},
-  output: {schema: GenerateImageEditOutputSchema},
   prompt: `You are an AI image editor. You will take a base image, and edit it based on an annotated version of the image which includes highlights and text. You may also be provided with element images. You will always return a data URL representing the final edited image.
 
 Base Image: {{media url=baseImage}}
@@ -122,12 +121,8 @@ const generateImageEditFlow = ai.defineFlow(
       promptInput.customPrompt = input.customPrompt;
     }
 
-    const {output} = await imageEditPrompt(promptInput);
+    const {media} = await imageEditPrompt(promptInput);
 
-    if (!output?.editedImage) {
-      throw new Error('No edited image was generated.');
-    }
-
-    return {editedImage: output.editedImage};
+    return {editedImage: media?.url};
   }
 );

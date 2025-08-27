@@ -10,10 +10,13 @@ export interface Annotation {
   color: string;
   text: string;
   position: { x: number; y: number };
-  width: number;
   fontSize: number;
 }
 
 export type CanvasObject = Highlight | Annotation;
 
 export type Tool = 'highlight' | 'annotate' | 'erase';
+
+export type BrushSize = 'small' | 'medium' | 'large';
+
+    
