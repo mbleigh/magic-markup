@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, ChangeEvent } from 'react';
+import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
 import Image from 'next/image';
 import {
   Annotation,
@@ -155,8 +155,10 @@ export function MagicMarkupEditor() {
         const img = new window.Image();
         img.src = baseImage;
         img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
+            if (canvas.width !== img.width || canvas.height !== img.height) {
+              canvas.width = img.width;
+              canvas.height = img.height;
+            }
             ctx.drawImage(img, 0, 0);
 
             // Redraw highlights
@@ -307,10 +309,62 @@ export function MagicMarkupEditor() {
     setElementNames(newNames);
   };
 
-  // Redraw canvas when highlights/annotations change
-  useState(() => {
+  const handlePaste = useCallback(async (event: ClipboardEvent) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') === -1) continue;
+
+        const file = items[i].getAsFile();
+        if (!file) continue;
+
+        try {
+            const url = await readFileAsDataURL(file);
+            if (!baseImage) {
+                setBaseImage(url);
+                toast({ title: 'Base image pasted!' });
+            } else {
+                const emptyIndex = elementImageUrls.findIndex(el => el === null);
+                if (emptyIndex !== -1) {
+                    const newImages = [...elementImages];
+                    newImages[emptyIndex] = file;
+                    setElementImages(newImages);
+
+                    const newUrls = [...elementImageUrls];
+                    newUrls[emptyIndex] = url;
+                    setElementImageUrls(newUrls);
+                    toast({ title: `Element ${emptyIndex + 1} image pasted!` });
+                } else {
+                    toast({ variant: 'destructive', title: 'All element slots are full.' });
+                }
+            }
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error reading pasted image',
+                description: 'Could not read the image from the clipboard.',
+            });
+        }
+        // Stop after handling the first image
+        break;
+    }
+  }, [baseImage, elementImageUrls, elementImages, toast]);
+
+  useEffect(() => {
+      window.addEventListener('paste', handlePaste);
+      return () => {
+          window.removeEventListener('paste', handlePaste);
+      };
+  }, [handlePaste]);
+
+  useEffect(() => {
+    redrawCanvas();
+  }, [baseImage, redrawCanvas]);
+
+  useEffect(() => {
     if(baseImage) redrawCanvas();
-  }, [highlights, annotations, redrawCanvas]);
+  }, [highlights, annotations, redrawCanvas, baseImage]);
 
 
   return (
@@ -365,8 +419,8 @@ export function MagicMarkupEditor() {
             <div className="flex w-full h-full max-w-2xl max-h-[70vh] items-center justify-center rounded-2xl border-2 border-dashed border-border">
               <div className="text-center">
                 <UploadCloud className="mx-auto size-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">Upload Base Image</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Start by uploading the image you want to edit.</p>
+                <h3 className="mt-4 text-lg font-medium">Upload or Paste Base Image</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Start by uploading or pasting the image you want to edit.</p>
                 <Button className="mt-4" onClick={() => fileInputRef.current?.click()}>
                   Browse Files
                 </Button>
@@ -456,3 +510,5 @@ export function MagicMarkupEditor() {
     </div>
   );
 }
+
+    
