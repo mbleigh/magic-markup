@@ -54,62 +54,69 @@ export const initialState: AppState = {
   isApiKeyDialogOpen: false,
 };
 
-export enum ActionType {
-  SET_IS_MOUNTED = 'SET_IS_MOUNTED',
-  SET_SESSION_HISTORY = 'SET_SESSION_HISTORY',
-  SET_ACTIVE_HISTORY_ID = 'SET_ACTIVE_HISTORY_ID',
-  SET_API_KEY = 'SET_API_KEY',
-  SET_BASE_IMAGE = 'SET_BASE_IMAGE',
-  SET_ELEMENT_IMAGES = 'SET_ELEMENT_IMAGES',
-  SET_ELEMENT_IMAGE_URLS = 'SET_ELEMENT_IMAGE_URLS',
-  SET_ELEMENT_NAMES = 'SET_ELEMENT_NAMES',
-  SET_CANVAS_OBJECTS = 'SET_CANVAS_OBJECTS',
-  ADD_CANVAS_OBJECT = 'ADD_CANVAS_OBJECT',
-  UPDATE_LAST_HIGHLIGHT_POINT = 'UPDATE_LAST_HIGHLIGHT_POINT',
-  SAVE_ANNOTATION = 'SAVE_ANNOTATION',
-  SET_TOOL = 'SET_TOOL',
-  SET_COLOR = 'SET_COLOR',
-  SET_BRUSH_SIZE = 'SET_BRUSH_SIZE',
-  SET_CUSTOM_PROMPT = 'SET_CUSTOM_PROMPT',
-  SET_IS_LOADING = 'SET_IS_LOADING',
-  SET_GENERATED_IMAGE = 'SET_GENERATED_IMAGE',
-  SET_IS_ELEMENT_UPLOAD_OPEN = 'SET_IS_ELEMENT_UPLOAD_OPEN',
-  SET_EDITING_ANNOTATION = 'SET_EDITING_ANNOTATION',
-  SET_CONFIRMING_NEW_IMAGE = 'SET_CONFIRMING_NEW_IMAGE',
-  SET_IS_CAMERA_ROLL_OPEN = 'SET_IS_CAMERA_ROLL_OPEN',
-  SET_IS_API_KEY_DIALOG_OPEN = 'SET_IS_API_KEY_DIALOG_OPEN',
-  LOAD_STATE_FROM_HISTORY = 'LOAD_STATE_FROM_HISTORY',
-  START_NEW_SESSION = 'START_NEW_SESSION',
-  DELETE_HISTORY_ITEM = 'DELETE_HISTORY_ITEM',
-}
+export const ActionType = {
+  SET_IS_MOUNTED: 'SET_IS_MOUNTED',
+  SET_SESSION_HISTORY: 'SET_SESSION_HISTORY',
+  SET_ACTIVE_HISTORY_ID: 'SET_ACTIVE_HISTORY_ID',
+  SET_API_KEY: 'SET_API_KEY',
+  SET_BASE_IMAGE: 'SET_BASE_IMAGE',
+  SET_ELEMENT_IMAGES: 'SET_ELEMENT_IMAGES',
+  SET_ELEMENT_IMAGE_URLS: 'SET_ELEMENT_IMAGE_URLS',
+  SET_ELEMENT_NAMES: 'SET_ELEMENT_NAMES',
+  SET_CANVAS_OBJECTS: 'SET_CANVAS_OBJECTS',
+  ADD_CANVAS_OBJECT: 'ADD_CANVAS_OBJECT',
+  UPDATE_LAST_HIGHLIGHT_POINT: 'UPDATE_LAST_HIGHLIGHT_POINT',
+  SAVE_ANNOTATION: 'SAVE_ANNOTATION',
+  SET_TOOL: 'SET_TOOL',
+  SET_COLOR: 'SET_COLOR',
+  SET_BRUSH_SIZE: 'SET_BRUSH_SIZE',
+  SET_CUSTOM_PROMPT: 'SET_CUSTOM_PROMPT',
+  SET_IS_LOADING: 'SET_IS_LOADING',
+  SET_GENERATED_IMAGE: 'SET_GENERATED_IMAGE',
+  SET_IS_ELEMENT_UPLOAD_OPEN: 'SET_IS_ELEMENT_UPLOAD_OPEN',
+  SET_EDITING_ANNOTATION: 'SET_EDITING_ANNOTATION',
+  SET_CONFIRMING_NEW_IMAGE: 'SET_CONFIRMING_NEW_IMAGE',
+  SET_IS_CAMERA_ROLL_OPEN: 'SET_IS_CAMERA_ROLL_OPEN',
+  SET_IS_API_KEY_DIALOG_OPEN: 'SET_IS_API_KEY_DIALOG_OPEN',
+  LOAD_STATE_FROM_HISTORY: 'LOAD_STATE_FROM_HISTORY',
+  START_NEW_SESSION: 'START_NEW_SESSION',
+  DELETE_HISTORY_ITEM: 'DELETE_HISTORY_ITEM',
+} as const;
 
-type Action =
-  | { type: ActionType.SET_IS_MOUNTED; payload: boolean }
-  | { type: ActionType.SET_SESSION_HISTORY; payload: SessionHistoryItem[] }
-  | { type: ActionType.SET_ACTIVE_HISTORY_ID; payload: string | null }
-  | { type: ActionType.SET_API_KEY; payload: string | null }
-  | { type: ActionType.SET_BASE_IMAGE; payload: string | null }
-  | { type: ActionType.SET_ELEMENT_IMAGES; payload: (File | null)[] }
-  | { type: ActionType.SET_ELEMENT_IMAGE_URLS; payload: (string | null)[] }
-  | { type: ActionType.SET_ELEMENT_NAMES; payload: string[] }
-  | { type: ActionType.SET_CANVAS_OBJECTS; payload: CanvasObject[] }
-  | { type: ActionType.ADD_CANVAS_OBJECT; payload: CanvasObject }
-  | { type: ActionType.UPDATE_LAST_HIGHLIGHT_POINT, payload: { x: number, y: number } }
-  | { type: ActionType.SAVE_ANNOTATION, payload: { id: string, text: string, position?: { x: number, y: number }, color: string, brushSize: BrushSize, canvasWidth?: number } }
-  | { type: ActionType.SET_TOOL; payload: Tool }
-  | { type: ActionType.SET_COLOR; payload: string }
-  | { type: ActionType.SET_BRUSH_SIZE; payload: BrushSize }
-  | { type: ActionType.SET_CUSTOM_PROMPT; payload: string }
-  | { type: ActionType.SET_IS_LOADING; payload: boolean }
-  | { type: ActionType.SET_GENERATED_IMAGE; payload: string | null }
-  | { type: ActionType.SET_IS_ELEMENT_UPLOAD_OPEN; payload: boolean }
-  | { type: ActionType.SET_EDITING_ANNOTATION; payload: Annotation | null }
-  | { type: ActionType.SET_CONFIRMING_NEW_IMAGE; payload: string | null }
-  | { type: ActionType.SET_IS_CAMERA_ROLL_OPEN; payload: boolean }
-  | { type: ActionType.SET_IS_API_KEY_DIALOG_OPEN; payload: boolean }
-  | { type: ActionType.LOAD_STATE_FROM_HISTORY; payload: SessionHistoryItem | null }
-  | { type: ActionType.START_NEW_SESSION; payload: SessionHistoryItem }
-  | { type: ActionType.DELETE_HISTORY_ITEM; payload: string };
+
+type ActionPayloads = {
+    [ActionType.SET_IS_MOUNTED]: boolean;
+    [ActionType.SET_SESSION_HISTORY]: SessionHistoryItem[];
+    [ActionType.SET_ACTIVE_HISTORY_ID]: string | null;
+    [ActionType.SET_API_KEY]: string | null;
+    [ActionType.SET_BASE_IMAGE]: string | null;
+    [ActionType.SET_ELEMENT_IMAGES]: (File | null)[];
+    [ActionType.SET_ELEMENT_IMAGE_URLS]: (string | null)[];
+    [ActionType.SET_ELEMENT_NAMES]: string[];
+    [ActionType.SET_CANVAS_OBJECTS]: CanvasObject[];
+    [ActionType.ADD_CANVAS_OBJECT]: CanvasObject;
+    [ActionType.UPDATE_LAST_HIGHLIGHT_POINT]: { x: number; y: number };
+    [ActionType.SAVE_ANNOTATION]: { id: string, text: string, position?: { x: number, y: number }, color: string, brushSize: BrushSize, canvasWidth?: number };
+    [ActionType.SET_TOOL]: Tool;
+    [ActionType.SET_COLOR]: string;
+    [ActionType.SET_BRUSH_SIZE]: BrushSize;
+    [ActionType.SET_CUSTOM_PROMPT]: string;
+    [ActionType.SET_IS_LOADING]: boolean;
+    [ActionType.SET_GENERATED_IMAGE]: string | null;
+    [ActionType.SET_IS_ELEMENT_UPLOAD_OPEN]: boolean;
+    [ActionType.SET_EDITING_ANNOTATION]: Annotation | null;
+    [ActionType.SET_CONFIRMING_NEW_IMAGE]: string | null;
+    [ActionType.SET_IS_CAMERA_ROLL_OPEN]: boolean;
+    [ActionType.SET_IS_API_KEY_DIALOG_OPEN]: boolean;
+    [ActionType.LOAD_STATE_FROM_HISTORY]: SessionHistoryItem | null;
+    [ActionType.START_NEW_SESSION]: SessionHistoryItem;
+    [ActionType.DELETE_HISTORY_ITEM]: string;
+};
+
+export type Action = {
+  [K in keyof ActionPayloads]: { type: K; payload: ActionPayloads[K] }
+}[keyof ActionPayloads];
+
 
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -260,5 +267,3 @@ export function reducer(state: AppState, action: Action): AppState {
       return state;
   }
 }
-
-    
