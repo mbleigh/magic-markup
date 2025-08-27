@@ -55,6 +55,8 @@ const imageEditPrompt = ai.definePrompt({
   input: {schema: GenerateImageEditInputSchema},
   prompt: `You are an AI image editor. You will take a base image, and edit it based on an annotated version of the image which includes highlights and text. You may also be provided with element images. You will always return a data URL representing the final edited image.
 
+  Try to keep photorealistic scene consistency - when adding or changing parts of the picture, always match the lighting and make it look seamless and photorealistic.
+
 Base Image: {{media url=baseImage}}
 {{#if annotatedImage}}
 === Annotations
