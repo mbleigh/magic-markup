@@ -4,8 +4,6 @@ Magic Markup is an open-source, AI-powered image editing application that demons
 
 This project is built with a modern web stack, including **Next.js**, **React**, **TypeScript**, and **Tailwind CSS**. Its core AI functionality is powered by **Google's Genkit** and the **Gemini family of models**.
 
-![Magic Markup Screenshot](https://storage.googleapis.com/static.invertase.io/magic-markup.png)
-
 ## Key Features
 
 - **In-Canvas Annotations**: Directly draw highlights and type text onto the base image to specify areas for editing.
@@ -21,7 +19,7 @@ To run Magic Markup locally, you'll need Node.js and npm installed.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-repo/magic-markup.git
+    git clone https://github.com/mbleigh/magic-markup.git
     cd magic-markup
     ```
 
