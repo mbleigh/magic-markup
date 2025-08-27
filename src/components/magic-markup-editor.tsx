@@ -344,7 +344,7 @@ export function MagicMarkupEditor() {
       const existing = canvasObjects.find(o => o.id === id);
       if (existing) {
         // Update existing
-        setCanvasObjects(prev => prev.map(o => o.id === id ? { ...o, text, position: newPosition || (o as Annotation).position } as Annotation : o));
+        setCanvasObjects(prev => prev.map(o => o.id === id ? { ...o, text, position: newPosition || (o as Annotation).position, width: undefined, height: undefined } as Annotation : o));
       } else {
         // Create new
         const newAnnotation: Annotation = {
