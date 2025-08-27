@@ -19,6 +19,9 @@ import {
   X,
   Plus,
   Paintbrush,
+  History,
+  Check,
+  ChevronLeft,
 } from 'lucide-react';
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
 import { Button } from '@/components/ui/button';
@@ -27,11 +30,22 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { type Tool, type BrushSize, type CanvasObject, type Annotation, type Highlight } from '@/lib/types';
+import { type Tool, type BrushSize, type CanvasObject, type Annotation, type Highlight, type SessionHistoryItem } from '@/lib/types';
 import { ColorPicker } from './color-picker';
 import { Header } from './header';
 import { IconButton } from './icon-button';
 import { dataUrlToBlob, resizeImage } from '@/lib/canvas-utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +57,7 @@ import {
 } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { TextAnnotator } from './text-annotator';
+import { ScrollArea } from './ui/scroll-area';
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
 const BRUSH_SIZES: Record<BrushSize, number> = {
@@ -52,11 +67,16 @@ const BRUSH_SIZES: Record<BrushSize, number> = {
 };
 const MAX_DIMENSION = 1000;
 const SELECTION_PADDING = 10;
+const LOCAL_STORAGE_KEY = 'magic-markup-session';
 
 export function MagicMarkupEditor() {
   const { toast } = useToast();
 
   // State
+  const [isMounted, setIsMounted] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+
   const [baseImage, setBaseImage] = useState<string | null>(null);
   const [elementImages, setElementImages] = useState<(File | null)[]>([null, null, null]);
   const [elementImageUrls, setElementImageUrls] = useState<(string | null)[]>([null, null, null]);
@@ -70,7 +90,8 @@ export function MagicMarkupEditor() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isElementUploadOpen, setIsElementUploadOpen] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
-  const [annotationPosition, setAnnotationPosition] = useState({ x: 0, y: 0 });
+  const [confirmingNewImage, setConfirmingNewImage] = useState<string | null>(null);
+  const [isCameraRollOpen, setIsCameraRollOpen] = useState(true);
 
   // Canvas interaction refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,6 +109,54 @@ export function MagicMarkupEditor() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elementFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // -- SESSION & HISTORY MANAGEMENT --
+  
+  const createNewHistoryItem = useCallback((newBaseImage: string, prompt?: string) => {
+    const newItem: SessionHistoryItem = {
+      id: `session-${Date.now()}`,
+      baseImage: newBaseImage,
+      annotations: [],
+      elementImageUrls: [null, null, null],
+      elementNames: ['', '', ''],
+      prompt: prompt || '',
+      createdAt: new Date().toISOString()
+    };
+    return newItem;
+  }, []);
+
+  const startNewSession = useCallback((newBaseImage: string) => {
+    const newItem = createNewHistoryItem(newBaseImage);
+    setSessionHistory(prev => [...prev, newItem]);
+    setActiveHistoryId(newItem.id);
+  }, [createNewHistoryItem]);
+  
+  const loadStateFromHistoryItem = (item: SessionHistoryItem | null) => {
+    if (!item) {
+      setBaseImage(null);
+      setCanvasObjects([]);
+      setElementImageUrls([null, null, null]);
+      setElementImages([null, null, null]);
+      setElementNames(['', '', '']);
+      setCustomPrompt('');
+      setActiveHistoryId(null);
+      return;
+    }
+    setBaseImage(item.baseImage);
+    setCanvasObjects(item.annotations);
+    setElementImageUrls(item.elementImageUrls || [null, null, null]);
+    setElementImages([null, null, null]); // Files can't be stored, need re-upload
+    setElementNames(item.elementNames || ['', '', '']);
+    setCustomPrompt(item.prompt || '');
+    setActiveHistoryId(item.id);
+  }
+  
+  const handleConfirmNewImage = (confirmed: boolean) => {
+    if (confirmed && confirmingNewImage) {
+      startNewSession(confirmingNewImage);
+    }
+    setConfirmingNewImage(null);
+  }
 
   const readFileAsDataURL = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -105,7 +174,11 @@ export function MagicMarkupEditor() {
     try {
       const url = await readFileAsDataURL(file);
       const resizedUrl = await resizeImage(url, MAX_DIMENSION, MAX_DIMENSION);
-      setBaseImage(resizedUrl);
+      if (baseImage) {
+        setConfirmingNewImage(resizedUrl);
+      } else {
+        startNewSession(resizedUrl);
+      }
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -279,7 +352,6 @@ export function MagicMarkupEditor() {
     const { x, y } = getCanvasCoordinates(e);
 
     if (tool === 'annotate') {
-      setAnnotationPosition({ x: e.nativeEvent.clientX, y: e.nativeEvent.clientY });
       setEditingAnnotation({
         id: Date.now().toString(),
         type: 'annotation',
@@ -505,6 +577,12 @@ export function MagicMarkupEditor() {
       setIsLoading(false);
     }
   };
+
+  const handleKeepEditing = () => {
+    if (!generatedImage) return;
+    startNewSession(generatedImage);
+    setGeneratedImage(null);
+  };
   
   const handleCopy = async () => {
     if (!generatedImage) return;
@@ -545,6 +623,23 @@ export function MagicMarkupEditor() {
     newNames.push('');
     setElementNames(newNames);
   };
+
+  const handleDeleteHistoryItem = (idToDelete: string) => {
+    setSessionHistory(prev => prev.filter(item => item.id !== idToDelete));
+    if (activeHistoryId === idToDelete) {
+      // If we deleted the active item, load the latest one or clear the canvas
+      const remainingHistory = sessionHistory.filter(item => item.id !== idToDelete);
+      if (remainingHistory.length > 0) {
+        loadStateFromHistoryItem(remainingHistory[remainingHistory.length - 1]);
+      } else {
+        loadStateFromHistoryItem(null);
+      }
+    }
+  };
+
+  const handleNewSession = () => {
+    loadStateFromHistoryItem(null);
+  }
   
   const handlePaste = useCallback(async (event: ClipboardEvent) => {
     const items = event.clipboardData?.items;
@@ -567,10 +662,10 @@ export function MagicMarkupEditor() {
           const url = await readFileAsDataURL(file);
           const resizedUrl = await resizeImage(url, MAX_DIMENSION, MAX_DIMENSION);
           if (!baseImage) {
-            setBaseImage(resizedUrl);
+            startNewSession(resizedUrl);
             toast({ title: 'Base image pasted!' });
           } else {
-            toast({ variant: 'destructive', title: 'Base image already present', description: 'You can paste an element by opening the element upload dialog.' });
+            setConfirmingNewImage(resizedUrl);
           }
         } catch (error) {
           toast({
@@ -582,11 +677,11 @@ export function MagicMarkupEditor() {
       }
       break;
     }
-  }, [baseImage, toast, isElementUploadOpen, addElementImage]);
+  }, [baseImage, toast, isElementUploadOpen, addElementImage, startNewSession]);
   
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // If an input is focused, don't handle key events
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || editingAnnotation) {
         return;
     }
 
@@ -598,7 +693,58 @@ export function MagicMarkupEditor() {
         saveHistory();
       }
     }
-  }, [canvasObjects, saveHistory]);
+  }, [canvasObjects, saveHistory, editingAnnotation]);
+
+  // Load from local storage on mount
+  useEffect(() => {
+    setIsMounted(true);
+    try {
+      const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedSession) {
+        const { history, activeId } = JSON.parse(savedSession);
+        if (history && Array.isArray(history)) {
+          setSessionHistory(history);
+          const activeItem = history.find((item: SessionHistoryItem) => item.id === activeId) || history[history.length -1];
+          if (activeItem) {
+            loadStateFromHistoryItem(activeItem);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load session from local storage", e);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
+  }, []);
+
+  // Save to local storage on change
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      const activeItem = sessionHistory.find(item => item.id === activeHistoryId);
+      if (activeItem) {
+         // Create a new object for the current state to save
+        const updatedActiveItem: SessionHistoryItem = {
+          ...activeItem,
+          annotations: canvasObjects,
+          elementImageUrls: elementImageUrls,
+          elementNames: elementNames,
+          prompt: customPrompt
+        };
+
+        const newHistory = sessionHistory.map(item => item.id === activeHistoryId ? updatedActiveItem : item);
+        
+        const dataToSave = JSON.stringify({ history: newHistory, activeId: activeHistoryId });
+        localStorage.setItem(LOCAL_STORAGE_KEY, dataToSave);
+      } else if (sessionHistory.length === 0 && !baseImage) {
+        // Clear local storage if everything is empty
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
+
+    } catch(e) {
+      console.error("Failed to save session to local storage", e);
+    }
+  }, [isMounted, canvasObjects, elementImageUrls, elementNames, customPrompt, sessionHistory, activeHistoryId, baseImage]);
+
 
   useEffect(() => {
     history.current.push([]);
@@ -631,10 +777,65 @@ export function MagicMarkupEditor() {
   }, [canvasObjects, redrawCanvas]);
 
 
+  if (!isMounted) {
+    return null; // or a loading spinner
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <Header />
-      <div className="grid flex-1 grid-cols-1 md:grid-cols-[1fr_350px]">
+      <div className="grid flex-1 grid-cols-1 md:grid-cols-[auto_1fr_350px]">
+        {/* Left Sidebar - Camera Roll */}
+        <aside 
+          className={`flex flex-col gap-4 border-r bg-card p-2 transition-all duration-300 ${isCameraRollOpen ? 'w-48' : 'w-12'}`}
+        >
+          <div className="flex items-center justify-between">
+              {isCameraRollOpen && <CardTitle className="text-lg">History</CardTitle>}
+              <IconButton 
+                icon={isCameraRollOpen ? ChevronLeft : History} 
+                tooltip={isCameraRollOpen ? "Collapse History" : "Expand History"} 
+                onClick={() => setIsCameraRollOpen(!isCameraRollOpen)} 
+              />
+          </div>
+          {isCameraRollOpen && (
+            <>
+              <Button size="sm" variant="outline" onClick={handleNewSession}><Plus className="mr-2" /> New Session</Button>
+              <Separator />
+              <ScrollArea className="flex-1">
+                <div className="flex flex-col gap-2 pr-2">
+                {sessionHistory.slice().reverse().map(item => (
+                  <div key={item.id} className="relative group">
+                    <button 
+                      onClick={() => loadStateFromHistoryItem(item)} 
+                      className={`w-full rounded-md border-2 overflow-hidden ${activeHistoryId === item.id ? 'border-primary' : 'border-transparent hover:border-muted-foreground'}`}
+                    >
+                      <Image 
+                        src={item.baseImage}
+                        alt={`History item from ${item.createdAt}`}
+                        width={150}
+                        height={150}
+                        className="object-cover w-full aspect-square"
+                      />
+                    </button>
+                     <IconButton 
+                      icon={Trash2}
+                      tooltip="Delete"
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteHistoryItem(item.id);
+                      }}
+                      className="absolute top-1 right-1 size-7 opacity-0 group-hover:opacity-100"
+                    />
+                  </div>
+                ))}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </aside>
+
         {/* Center - Editor */}
         <main className="flex flex-col items-center justify-center bg-background/50 p-4">
           {baseImage ? (
@@ -668,7 +869,6 @@ export function MagicMarkupEditor() {
                     annotation={editingAnnotation}
                     onSave={handleSaveAnnotation}
                     onCancel={() => setEditingAnnotation(null)}
-                    containerRef={canvasContainerRef}
                     canvasRef={canvasRef}
                    />
                  )}
@@ -799,7 +999,21 @@ export function MagicMarkupEditor() {
                 Generate Image
             </Button>
         </aside>
-      </div>
+
+        <AlertDialog open={!!confirmingNewImage} onOpenChange={(open) => !open && setConfirmingNewImage(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Replace Base Image?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will start a new session with the new image. All current annotations will be cleared. Element images will be kept.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => handleConfirmNewImage(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => handleConfirmNewImage(true)}>Replace</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Dialog open={!!generatedImage} onOpenChange={(open) => !open && setGeneratedImage(null)}>
             <DialogContent className="max-w-4xl">
@@ -824,10 +1038,12 @@ export function MagicMarkupEditor() {
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={handleCopy}><ClipboardCopy className="mr-2" /> Copy</Button>
-                    <Button onClick={handleDownload}><Download className="mr-2" /> Download</Button>
+                    <Button variant="outline" onClick={handleDownload}><Download className="mr-2" /> Download</Button>
+                    <Button onClick={handleKeepEditing}><Check className="mr-2" /> Keep Editing</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+      </div>
     </div>
   );
 }

@@ -11,7 +11,6 @@ interface TextAnnotatorProps {
   annotation: Annotation;
   onSave: (text: string, id: string, newPosition?: {x: number, y: number}) => void;
   onCancel: () => void;
-  containerRef: React.RefObject<HTMLDivElement>;
   canvasRef: React.RefObject<HTMLCanvasElement>;
 }
 
@@ -19,10 +18,10 @@ export function TextAnnotator({
   annotation,
   onSave,
   onCancel,
-  containerRef,
   canvasRef,
 }: TextAnnotatorProps) {
   const [text, setText] = useState(annotation.text);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const getUiPosition = () => {
     const canvas = canvasRef.current;
@@ -42,6 +41,14 @@ export function TextAnnotator({
     setPosition(getUiPosition());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annotation.position.x, annotation.position.y, canvasRef.current]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only drag when clicking the div itself, not the textarea or buttons
@@ -100,6 +107,12 @@ export function TextAnnotator({
         onCancel();
     }
   }
+  
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
+  }
 
   return (
     <div
@@ -109,17 +122,18 @@ export function TextAnnotator({
         left: `${position.x}px`,
         top: `${position.y}px`,
         transform: `translate(-50%, ${annotation.text ? '-50%' : '0%'})`,
+        maxWidth: '300px'
       }}
       onMouseDown={handleMouseDown}
       onClick={(e) => e.stopPropagation()} // Prevent click from propagating to canvas
     >
       <Textarea
-        autoFocus
+        ref={textareaRef}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={handleTextChange}
         onKeyDown={handleKeyDown}
         placeholder="Add annotation..."
-        className="font-marker font-bold"
+        className="font-marker font-bold resize-none"
         style={{
           color: annotation.color,
           fontSize: `${annotation.fontSize}px`,

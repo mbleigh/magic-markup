@@ -21,7 +21,16 @@ export interface Annotation extends CanvasObject {
   height?: number;
 }
 
-
 export type Tool = 'highlight' | 'annotate' | 'erase' | 'select';
 
 export type BrushSize = 'small' | 'medium' | 'large';
+
+export interface SessionHistoryItem {
+  id: string;
+  baseImage: string;
+  annotations: CanvasObject[];
+  elementImageUrls: (string | null)[];
+  elementNames: string[];
+  prompt: string;
+  createdAt: string;
+}
