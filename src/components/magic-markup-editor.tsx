@@ -170,13 +170,38 @@ export function MagicMarkupEditor() {
     redrawCanvas();
   }
   
-  const redrawCanvas = useCallback(() => {
+  const redrawCanvas = useCallback((forExport = false) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const drawContent = () => {
+      // Redraw highlights
+      highlights.forEach(h => {
+          ctx.strokeStyle = h.color;
+          ctx.lineWidth = 10;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          h.points.forEach((p: {x: number, y: number}, i: number) => {
+              if (i === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+          });
+          ctx.stroke();
+      });
+
+      // Redraw annotations
+      ctx.globalAlpha = 1.0;
+      annotations.forEach(a => {
+          ctx.font = `bold 24px "Source Code Pro", monospace`;
+          ctx.fillStyle = a.color;
+          ctx.fillText(a.text, a.position.x, a.position.y);
+      });
+    }
 
     if (baseImage) {
         const img = new window.Image();
@@ -186,31 +211,13 @@ export function MagicMarkupEditor() {
               canvas.width = img.naturalWidth;
               canvas.height = img.naturalHeight;
             }
-            ctx.drawImage(img, 0, 0);
-
-            // Redraw highlights
-            highlights.forEach(h => {
-                ctx.strokeStyle = h.color;
-                ctx.lineWidth = 10;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.globalAlpha = 0.5;
-                ctx.beginPath();
-                h.points.forEach((p: {x: number, y: number}, i: number) => {
-                    if (i === 0) ctx.moveTo(p.x, p.y);
-                    else ctx.lineTo(p.x, p.y);
-                });
-                ctx.stroke();
-            });
-
-            // Redraw annotations
-            ctx.globalAlpha = 1.0;
-            annotations.forEach(a => {
-                ctx.font = `bold 24px "Source Code Pro", monospace`;
-                ctx.fillStyle = a.color;
-                ctx.fillText(a.text, a.position.x, a.position.y);
-            });
+            if(forExport) {
+              ctx.drawImage(img, 0, 0);
+            }
+            drawContent();
         };
+    } else {
+      drawContent();
     }
   }, [baseImage, highlights, annotations]);
 
@@ -273,17 +280,53 @@ export function MagicMarkupEditor() {
     setIsLoading(true);
 
     try {
+      const annotatedCanvas = document.createElement('canvas');
+      const baseImg = new window.Image();
+      baseImg.src = baseImage;
+      await new Promise(resolve => { baseImg.onload = resolve; });
+
+      annotatedCanvas.width = baseImg.naturalWidth;
+      annotatedCanvas.height = baseImg.naturalHeight;
+      const ctx = annotatedCanvas.getContext('2d');
+      if(!ctx) throw new Error("Could not get canvas context");
+      
+      ctx.drawImage(baseImg, 0, 0);
+
+      // Draw highlights
+      highlights.forEach(h => {
+          ctx.strokeStyle = h.color;
+          ctx.lineWidth = 10;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          h.points.forEach((p: {x: number, y: number}, i: number) => {
+              if (i === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+          });
+          ctx.stroke();
+      });
+
+      // Draw annotations
+      ctx.globalAlpha = 1.0;
+      annotations.forEach(a => {
+          ctx.font = `bold 24px "Source Code Pro", monospace`;
+          ctx.fillStyle = a.color;
+          ctx.fillText(a.text, a.position.x, a.position.y);
+      });
+      
+      const annotatedImage = annotatedCanvas.toDataURL('image/png');
+
       const elementImage1 = elementImageUrls[0];
       const elementImage2 = elementImageUrls[1];
       const elementImage3 = elementImageUrls[2];
 
       const result = await generateImageEdit({
         baseImage,
+        annotatedImage,
         elementImage1,
         elementImage2,
         elementImage3,
-        highlights: JSON.stringify(highlights.map(h => ({ color: h.color, path: h.points}))),
-        annotations: JSON.stringify(annotations.map(a => ({ color: a.color, text: a.text, position: a.position}))),
         customPrompt,
       });
       setGeneratedImage(result.editedImage);
@@ -371,7 +414,7 @@ export function MagicMarkupEditor() {
       // Stop after handling the first image
       break;
     }
-  }, [baseImage, toast, isElementUploadOpen]);
+  }, [baseImage, toast, isElementUploadOpen, addElementImage]);
 
 
   useEffect(() => {
@@ -382,12 +425,20 @@ export function MagicMarkupEditor() {
   }, [handlePaste]);
 
   useEffect(() => {
-    redrawCanvas();
+    const canvas = canvasRef.current;
+    if (!canvas || !baseImage) return;
+    const img = new window.Image();
+    img.src = baseImage;
+    img.onload = () => {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        redrawCanvas();
+    }
   }, [baseImage, redrawCanvas]);
 
   useEffect(() => {
-    if(baseImage) redrawCanvas();
-  }, [highlights, annotations, redrawCanvas, baseImage]);
+    redrawCanvas();
+  }, [highlights, annotations, redrawCanvas]);
 
 
   return (
@@ -397,14 +448,29 @@ export function MagicMarkupEditor() {
         {/* Center - Editor */}
         <main className="flex flex-col items-center justify-center bg-background/50 p-4">
           {baseImage ? (
-            <div className="relative w-full h-full flex items-center justify-center">
+             <div className="relative w-full h-full flex items-center justify-center">
+                 <Image
+                    src={baseImage}
+                    alt="Base image"
+                    width={1024}
+                    height={1024}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg pointer-events-none"
+                    style={{
+                      width: 'auto',
+                      height: 'auto',
+                    }}
+                 />
                  <canvas
                     ref={canvasRef}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain"
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
                     onMouseLeave={handleCanvasMouseUp}
+                    style={{
+                      width: 'auto',
+                      height: 'auto',
+                    }}
                  />
             </div>
           ) : (
