@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -20,41 +21,69 @@ interface ApiKeyDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (apiKey: string) => void;
+  existingApiKey: string | null;
 }
 
-export function ApiKeyDialog({ isOpen, onOpenChange, onSave }: ApiKeyDialogProps) {
-  const [apiKey, setApiKey] = useState('');
+export function ApiKeyDialog({ isOpen, onOpenChange, onSave, existingApiKey }: ApiKeyDialogProps) {
+  const [newApiKey, setNewApiKey] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setNewApiKey('');
+    }
+  }, [isOpen]);
 
   const handleSave = () => {
-    if (apiKey.trim()) {
-      onSave(apiKey.trim());
+    if (newApiKey.trim()) {
+      onSave(newApiKey.trim());
     }
   };
+
+  const getMaskedKey = () => {
+    if (!existingApiKey) return 'None';
+    return `••••••••••••${existingApiKey.slice(-4)}`;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <KeyRound /> Enter API Key
+            <KeyRound /> Manage API Key
           </DialogTitle>
           <DialogDescription>
-            Please enter your Google AI API key to generate images. Your key will be stored securely in your browser's local storage and will not be shared.
+            Please enter your Google AI API key to generate images. You can get one from{' '}
+            <Link href="https://ai.studio/apikey" target="_blank" className="underline">
+              Google AI Studio
+            </Link>
+            . Your key will be stored securely in your browser's local storage.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="api-key" className="text-right">
-              API Key
-            </Label>
-            <Input
-              id="api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="col-span-3"
-            />
-          </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="existing-api-key" className="text-right">
+                    Current Key
+                </Label>
+                <Input
+                    id="existing-api-key"
+                    value={getMaskedKey()}
+                    className="col-span-3 font-code"
+                    disabled
+                />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="api-key" className="text-right">
+                    New Key
+                </Label>
+                <Input
+                    id="api-key"
+                    type="text"
+                    value={newApiKey}
+                    onChange={(e) => setNewApiKey(e.target.value)}
+                    placeholder="Enter new API key..."
+                    className="col-span-3"
+                />
+            </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
@@ -62,8 +91,8 @@ export function ApiKeyDialog({ isOpen, onOpenChange, onSave }: ApiKeyDialogProps
               Cancel
             </Button>
           </DialogClose>
-          <Button type="button" onClick={handleSave} disabled={!apiKey.trim()}>
-            Save Key
+          <Button type="button" onClick={handleSave} disabled={!newApiKey.trim()}>
+            Save New Key
           </Button>
         </DialogFooter>
       </DialogContent>

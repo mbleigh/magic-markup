@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
@@ -744,6 +745,7 @@ export function useMagicMarkup() {
     isMounted,
     sessionHistory,
     activeHistoryId,
+    apiKey,
     baseImage,
     elementImageUrls,
     canvasObjects,
