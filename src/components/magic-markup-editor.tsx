@@ -267,7 +267,7 @@ export function MagicMarkupEditor() {
         color,
         text,
         position: { x, y },
-        fontSize: BRUSH_SIZES[brushSize] * 2
+        fontSize: BRUSH_SIZES[brushSize] * 2.5
       }]);
       saveHistory();
     }
@@ -564,7 +564,7 @@ export function MagicMarkupEditor() {
                     onSave={handleSaveAnnotation}
                     onCancel={() => setIsAnnotating(false)}
                     color={color}
-                    fontSize={BRUSH_SIZES[brushSize] * 2}
+                    fontSize={BRUSH_SIZES[brushSize] * 2.5}
                     containerRef={canvasContainerRef}
                    />
                  )}
