@@ -127,9 +127,11 @@ export function MagicMarkupEditor() {
 
   const startNewSession = useCallback((newBaseImage: string) => {
     const newItem = createNewHistoryItem(newBaseImage);
-    setSessionHistory(prev => [...prev, newItem]);
+    const newHistory = [...sessionHistory, newItem];
+    setSessionHistory(newHistory);
     setActiveHistoryId(newItem.id);
-  }, [createNewHistoryItem]);
+    loadStateFromHistoryItem(newItem);
+  }, [createNewHistoryItem, sessionHistory]);
   
   const loadStateFromHistoryItem = (item: SessionHistoryItem | null) => {
     if (!item) {
@@ -625,12 +627,13 @@ export function MagicMarkupEditor() {
   };
 
   const handleDeleteHistoryItem = (idToDelete: string) => {
-    setSessionHistory(prev => prev.filter(item => item.id !== idToDelete));
+    const newHistory = sessionHistory.filter(item => item.id !== idToDelete)
+    setSessionHistory(newHistory);
+    
     if (activeHistoryId === idToDelete) {
       // If we deleted the active item, load the latest one or clear the canvas
-      const remainingHistory = sessionHistory.filter(item => item.id !== idToDelete);
-      if (remainingHistory.length > 0) {
-        loadStateFromHistoryItem(remainingHistory[remainingHistory.length - 1]);
+      if (newHistory.length > 0) {
+        loadStateFromHistoryItem(newHistory[newHistory.length - 1]);
       } else {
         loadStateFromHistoryItem(null);
       }
@@ -709,12 +712,10 @@ export function MagicMarkupEditor() {
       const savedSession = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedSession) {
         const { history, activeId } = JSON.parse(savedSession);
-        if (history && Array.isArray(history)) {
+        if (history && Array.isArray(history) && history.length > 0) {
           setSessionHistory(history);
           const activeItem = history.find((item: SessionHistoryItem) => item.id === activeId) || history[history.length -1];
-          if (activeItem) {
-            loadStateFromHistoryItem(activeItem);
-          }
+          loadStateFromHistoryItem(activeItem);
         }
       }
     } catch (e) {
