@@ -695,6 +695,13 @@ export function MagicMarkupEditor() {
     }
   }, [canvasObjects, saveHistory, editingAnnotation]);
 
+  const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleGenerate();
+    }
+  };
+
   // Load from local storage on mount
   useEffect(() => {
     setIsMounted(true);
@@ -978,11 +985,11 @@ export function MagicMarkupEditor() {
                 </CardContent>
             </Card>
 
-            <Card className="flex-1">
+            <Card className="flex-1 flex flex-col">
                 <CardHeader>
                     <CardTitle className="text-lg">Prompt</CardTitle>
                 </CardHeader>
-                <CardContent className="h-full flex flex-col">
+                <CardContent className="flex-1 flex flex-col">
                     <Label htmlFor="custom-prompt">Add custom instructions</Label>
                     <Textarea 
                       id="custom-prompt"
@@ -990,6 +997,7 @@ export function MagicMarkupEditor() {
                       placeholder="e.g., 'make the sky dramatic and moody'"
                       value={customPrompt}
                       onChange={(e) => setCustomPrompt(e.target.value)}
+                      onKeyDown={handlePromptKeyDown}
                     />
                 </CardContent>
             </Card>
