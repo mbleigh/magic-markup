@@ -42,7 +42,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { TextAnnotator, type TextAnnotation as TextAnnotatorInput } from './text-annotator';
+import { TextAnnotator } from './text-annotator';
 
 const EDITOR_COLORS = ['#D35898', '#3B82F6', '#22C55E', '#EAB308'] as const;
 const BRUSH_SIZES: Record<BrushSize, number> = {
@@ -120,7 +120,7 @@ export function MagicMarkupEditor() {
     await addElementImage(file);
   };
   
-  const addElementImage = async (file: File) => {
+  const addElementImage = useCallback(async (file: File) => {
     const emptyIndex = elementImageUrls.findIndex(el => el === null);
     if (emptyIndex === -1) {
       toast({ variant: 'destructive', title: 'Cannot add more elements', description: 'You can only add up to 3 elements.' });
@@ -147,7 +147,7 @@ export function MagicMarkupEditor() {
         description: 'Could not read the selected image file.',
       });
     }
-  };
+  }, [elementImageUrls, elementImages, toast]);
 
   const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -208,6 +208,14 @@ export function MagicMarkupEditor() {
                 else ctx.lineTo(p.x, p.y);
             });
             ctx.stroke();
+
+            if (h.selected) {
+                ctx.strokeStyle = '#007AFF'; // Selection color
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.2;
+                ctx.stroke();
+            }
+
         } else if (obj.type === 'annotation') {
             const a = obj as Annotation;
             ctx.globalAlpha = 1.0;
@@ -283,10 +291,10 @@ export function MagicMarkupEditor() {
           return obj;
         }));
 
-        if (hitObject) {
+        if (hitObject && hitObject.type === 'annotation') {
             interactionState.current = { 
               isDragging: true, 
-              dragOffset: { x: x - (hitObject as any).position.x, y: y - (hitObject as any).position.y }
+              dragOffset: { x: x - hitObject.position.x, y: y - hitObject.position.y }
             };
         }
         return;
@@ -322,7 +330,7 @@ export function MagicMarkupEditor() {
         color,
         text,
         position: { x, y },
-        fontSize: BRUSH_SIZES[brushSize] * 3 * (canvas.width / MAX_DIMENSION)
+        fontSize: BRUSH_SIZES[brushSize] * 4 * (canvas.width / MAX_DIMENSION)
       };
       setCanvasObjects(prev => [...prev, newAnnotation]);
       saveHistory();
@@ -426,7 +434,7 @@ export function MagicMarkupEditor() {
             ctx.beginPath();
             h.points.forEach((p: {x: number, y: number}, i: number) => {
                 if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.y, p.y);
+                else ctx.lineTo(p.x, p.y);
             });
             ctx.stroke();
         });
@@ -630,7 +638,7 @@ export function MagicMarkupEditor() {
                     onSave={handleSaveAnnotation}
                     onCancel={() => setIsAnnotating(false)}
                     color={color}
-                    fontSize={BRUSH_SIZES[brushSize] * 3 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)}
+                    fontSize={BRUSH_SIZES[brushSize] * 4 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)}
                     containerRef={canvasContainerRef}
                    />
                  )}
@@ -793,3 +801,5 @@ export function MagicMarkupEditor() {
     </div>
   );
 }
+
+    
