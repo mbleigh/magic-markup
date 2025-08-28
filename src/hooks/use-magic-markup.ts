@@ -19,6 +19,7 @@ const MAX_DIMENSION = 1000;
 const SELECTION_PADDING = 10;
 const LOCAL_STORAGE_KEY_SESSION = 'magic-markup-session';
 const LOCAL_STORAGE_KEY_API_KEY = 'magic-markup-api-key';
+const ANNOTATION_FONT_SIZE_MEDIUM = BRUSH_SIZES['medium'] * 4;
 
 export function useMagicMarkup() {
   const { toast } = useToast();
@@ -309,7 +310,7 @@ export function useMagicMarkup() {
         text: '',
         color: color,
         position: {x, y},
-        fontSize: BRUSH_SIZES[brushSize] * 4 * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)
+        fontSize: ANNOTATION_FONT_SIZE_MEDIUM * ((canvasRef.current?.width || MAX_DIMENSION) / MAX_DIMENSION)
       });
       return;
     }
@@ -363,7 +364,7 @@ export function useMagicMarkup() {
 
   const handleSaveAnnotation = (text: string, id: string, newPosition?: {x: number, y: number}) => {
     if (text) {
-      dispatchAction('SAVE_ANNOTATION', { id, text, position: newPosition, color, brushSize, canvasWidth: canvasRef.current?.width });
+      dispatchAction('SAVE_ANNOTATION', { id, text, position: newPosition, color });
       saveHistory();
     }
     setEditingAnnotation(null);

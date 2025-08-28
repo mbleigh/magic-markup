@@ -7,6 +7,7 @@ const BRUSH_SIZES: Record<BrushSize, number> = {
   large: 20,
 };
 const MAX_DIMENSION = 1000;
+const ANNOTATION_FONT_SIZE_MEDIUM = BRUSH_SIZES['medium'] * 4;
 
 export interface AppState {
   isMounted: boolean;
@@ -64,7 +65,7 @@ export type ActionPayloads = {
   SET_CANVAS_OBJECTS: CanvasObject[];
   ADD_CANVAS_OBJECT: CanvasObject;
   UPDATE_LAST_HIGHLIGHT_POINT: { x: number; y: number };
-  SAVE_ANNOTATION: { id: string, text: string, position?: { x: number, y: number }, color: string, brushSize: BrushSize, canvasWidth?: number };
+  SAVE_ANNOTATION: { id: string, text: string, position?: { x: number, y: number }, color: string };
   SET_TOOL: Tool;
   SET_COLOR: string;
   SET_BRUSH_SIZE: BrushSize;
@@ -114,7 +115,7 @@ export function reducer(state: AppState, action: Action): AppState {
         }
         return { ...state, canvasObjects: [...state.canvasObjects] };
     case 'SAVE_ANNOTATION':
-        const { id, text, position, color, brushSize, canvasWidth } = action.payload;
+        const { id, text, position, color } = action.payload;
         const existing = state.canvasObjects.find(o => o.id === id);
         let newCanvasObjects: CanvasObject[];
         if (existing) {
@@ -126,7 +127,7 @@ export function reducer(state: AppState, action: Action): AppState {
                 color: color,
                 text: text,
                 position: position || {x: 0, y: 0},
-                fontSize: BRUSH_SIZES[brushSize] * 4 * ((canvasWidth || MAX_DIMENSION) / MAX_DIMENSION)
+                fontSize: ANNOTATION_FONT_SIZE_MEDIUM * ((state.baseImage ? MAX_DIMENSION : 1) / MAX_DIMENSION)
             };
             newCanvasObjects = [...state.canvasObjects, newAnnotation];
         }
