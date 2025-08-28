@@ -66,7 +66,7 @@ export function HistorySidebar({
                   <div key={item.id} className="relative group">
                     <button
                       onClick={() => loadStateFromHistoryItem(item)}
-                      className={`w-full rounded-md border-2 overflow-hidden ${
+                      className={`w-full rounded-md border-2 overflow-hidden select-none ${
                         activeHistoryId === item.id
                           ? 'border-primary'
                           : 'border-transparent hover:border-muted-foreground'
@@ -77,7 +77,7 @@ export function HistorySidebar({
                         alt={`History item from ${item.createdAt}`}
                         width={150}
                         height={150}
-                        className="object-cover w-full aspect-square pointer-events-none"
+                        className="object-cover w-full aspect-square"
                       />
                     </button>
                     <IconButton
