@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -55,7 +56,7 @@ export function TextAnnotator({
         textareaRef.current.style.height = 'auto';
         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, []);
+  }, [annotation.id]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only drag when clicking the div itself, not the textarea or buttons
