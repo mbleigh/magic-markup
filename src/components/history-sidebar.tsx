@@ -77,7 +77,7 @@ export function HistorySidebar({
                         alt={`History item from ${item.createdAt}`}
                         width={150}
                         height={150}
-                        className="object-cover w-full aspect-square"
+                        className="object-cover w-full aspect-square pointer-events-none"
                       />
                     </button>
                     <IconButton
