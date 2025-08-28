@@ -28,12 +28,13 @@ export function TextAnnotator({
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     
-    // The canvas is centered with "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-    // So its parent's top-left is the reference.
-    const parentRect = canvas.parentElement!.getBoundingClientRect();
+    // This is the coordinate on the *scaled* canvas element
+    const canvasUiX = (annotation.position.x / canvas.width) * rect.width;
+    const canvasUiY = (annotation.position.y / canvas.height) * rect.height;
 
-    const x = parentRect.left + (rect.width / 2) + (annotation.position.x - (canvas.width / 2)) * (rect.width / canvas.width);
-    const y = parentRect.top + (rect.height / 2) + (annotation.position.y - (canvas.height / 2)) * (rect.height / canvas.height);
+    // This is the final coordinate relative to the viewport
+    const x = rect.left + canvasUiX;
+    const y = rect.top + canvasUiY;
     
     return { x, y };
   }
@@ -89,10 +90,12 @@ export function TextAnnotator({
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const parentRect = canvas.parentElement!.getBoundingClientRect();
+    
+    const canvasUiX = uiPosition.x - rect.left;
+    const canvasUiY = uiPosition.y - rect.top;
 
-    const x = ((uiPosition.x - parentRect.left - (rect.width/2)) * (canvas.width / rect.width)) + (canvas.width / 2);
-    const y = ((uiPosition.y - parentRect.top - (rect.height/2)) * (canvas.height / rect.height)) + (canvas.height / 2);
+    const x = (canvasUiX / rect.width) * canvas.width;
+    const y = (canvasUiY / rect.height) * canvas.height;
     
     return { x, y };
   }
@@ -126,11 +129,11 @@ export function TextAnnotator({
   return (
     <div
       ref={annotatorRef}
-      className="absolute z-20 flex cursor-move flex-col gap-2 rounded-lg border bg-card p-2 shadow-xl"
+      className="fixed z-20 flex cursor-move flex-col gap-2 rounded-lg border bg-card p-2 shadow-xl"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: `translate(-50%, ${annotation.text ? '-50%' : '0%'})`,
+        transform: `translate(0, 0)`,
         maxWidth: '300px'
       }}
       onMouseDown={handleMouseDown}
