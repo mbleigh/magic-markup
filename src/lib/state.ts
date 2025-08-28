@@ -127,7 +127,7 @@ export function reducer(state: AppState, action: Action): AppState {
                 color: color,
                 text: text,
                 position: position || {x: 0, y: 0},
-                fontSize: ANNOTATION_FONT_SIZE_MEDIUM * ((state.baseImage ? MAX_DIMENSION : 1) / MAX_DIMENSION)
+                fontSize: ANNOTATION_FONT_SIZE_MEDIUM
             };
             newCanvasObjects = [...state.canvasObjects, newAnnotation];
         }
