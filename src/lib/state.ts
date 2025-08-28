@@ -23,7 +23,6 @@ export interface AppState {
   brushSize: BrushSize;
   customPrompt: string;
   isLoading: boolean;
-  generatedImage: string | null;
   isElementUploadOpen: boolean;
   editingAnnotation: Annotation | null;
   confirmingNewImage: string | null;
@@ -46,7 +45,6 @@ export const initialState: AppState = {
   brushSize: 'medium',
   customPrompt: '',
   isLoading: false,
-  generatedImage: null,
   isElementUploadOpen: false,
   editingAnnotation: null,
   confirmingNewImage: null,
@@ -72,7 +70,6 @@ export type ActionPayloads = {
   SET_BRUSH_SIZE: BrushSize;
   SET_CUSTOM_PROMPT: string;
   SET_IS_LOADING: boolean;
-  SET_GENERATED_IMAGE: string | null;
   SET_IS_ELEMENT_UPLOAD_OPEN: boolean;
   SET_EDITING_ANNOTATION: Annotation | null;
   SET_CONFIRMING_NEW_IMAGE: string | null;
@@ -145,8 +142,6 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, customPrompt: action.payload };
     case 'SET_IS_LOADING':
       return { ...state, isLoading: action.payload };
-    case 'SET_GENERATED_IMAGE':
-      return { ...state, generatedImage: action.payload };
     case 'SET_IS_ELEMENT_UPLOAD_OPEN':
       return { ...state, isElementUploadOpen: action.payload };
     case 'SET_EDITING_ANNOTATION':

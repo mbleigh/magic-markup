@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   Plus,
   Trash2,
+  ClipboardCopy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardTitle } from '@/components/ui/card';
@@ -23,6 +24,7 @@ interface HistorySidebarProps {
   activeHistoryId: string | null;
   loadStateFromHistoryItem: (item: SessionHistoryItem) => void;
   handleDeleteHistoryItem: (id: string) => void;
+  handleCopyHistoryItem: (id: string) => void;
 }
 
 export function HistorySidebar({
@@ -33,6 +35,7 @@ export function HistorySidebar({
   activeHistoryId,
   loadStateFromHistoryItem,
   handleDeleteHistoryItem,
+  handleCopyHistoryItem
 }: HistorySidebarProps) {
   return (
     <aside
@@ -77,6 +80,16 @@ export function HistorySidebar({
                         className="object-cover w-full aspect-square"
                       />
                     </button>
+                    <IconButton
+                        icon={ClipboardCopy}
+                        tooltip="Copy Image"
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyHistoryItem(item.id);
+                        }}
+                        className="absolute top-1 left-1 size-7 opacity-0 group-hover:opacity-100"
+                    />
                     <IconButton
                       icon={Trash2}
                       tooltip="Delete"

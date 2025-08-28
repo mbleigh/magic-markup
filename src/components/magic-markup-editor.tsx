@@ -1,7 +1,6 @@
 
 'use client';
 
-import Image from 'next/image';
 import { UploadCloud } from 'lucide-react';
 import { useMagicMarkup } from '@/hooks/use-magic-markup';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,6 @@ import { Header } from './header';
 import { HistorySidebar } from './history-sidebar';
 import { EditorCanvas } from './editor-canvas';
 import { Toolbar } from './toolbar';
-import { GeneratedImageDialog } from './generated-image-dialog';
 import { ConfirmNewImageDialog } from './confirm-new-image-dialog';
 import { ApiKeyDialog } from './api-key-dialog';
 
@@ -22,7 +20,11 @@ export function MagicMarkupEditor() {
 
   return (
     <div className="flex h-screen flex-col">
-      <Header onApiKeyClick={() => hook.setIsApiKeyDialogOpen(true)} />
+      <Header 
+        onApiKeyClick={() => hook.setIsApiKeyDialogOpen(true)} 
+        onCopyClick={hook.handleCopyBaseImage}
+        isCopyDisabled={!hook.baseImage}
+      />
       <div className="grid flex-1 grid-cols-1 md:grid-cols-[auto_1fr_350px]">
         <HistorySidebar
           isCameraRollOpen={hook.isCameraRollOpen}
@@ -32,6 +34,7 @@ export function MagicMarkupEditor() {
           activeHistoryId={hook.activeHistoryId}
           loadStateFromHistoryItem={hook.loadStateFromHistoryItem}
           handleDeleteHistoryItem={hook.handleDeleteHistoryItem}
+          handleCopyHistoryItem={hook.handleCopyHistoryItem}
         />
 
         <main className="flex flex-col items-center justify-center bg-background/50 p-4">
@@ -74,16 +77,6 @@ export function MagicMarkupEditor() {
           isOpen={!!hook.confirmingNewImage}
           onOpenChange={(open) => !open && hook.setConfirmingNewImage(null)}
           onConfirm={hook.handleConfirmNewImage}
-        />
-        
-        <GeneratedImageDialog
-            isOpen={!!hook.generatedImage}
-            onOpenChange={(open) => !open && hook.setGeneratedImage(null)}
-            baseImage={hook.baseImage}
-            generatedImage={hook.generatedImage}
-            handleCopy={hook.handleCopy}
-            handleDownload={hook.handleDownload}
-            handleKeepEditing={hook.handleKeepEditing}
         />
 
         <ApiKeyDialog 

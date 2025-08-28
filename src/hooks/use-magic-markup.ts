@@ -39,7 +39,6 @@ export function useMagicMarkup() {
     brushSize,
     customPrompt,
     isLoading,
-    generatedImage,
     isElementUploadOpen,
     editingAnnotation,
     confirmingNewImage,
@@ -73,7 +72,6 @@ export function useMagicMarkup() {
   const setColor = (color: string) => dispatchAction('SET_COLOR', color);
   const setBrushSize = (brushSize: BrushSize) => dispatchAction('SET_BRUSH_SIZE', brushSize);
   const setCustomPrompt = (prompt: string) => dispatchAction('SET_CUSTOM_PROMPT', prompt);
-  const setGeneratedImage = (image: string | null) => dispatchAction('SET_GENERATED_IMAGE', image);
   const setIsElementUploadOpen = (isOpen: boolean) => dispatchAction('SET_IS_ELEMENT_UPLOAD_OPEN', isOpen);
   const setEditingAnnotation = (annotation: Annotation | null) => dispatchAction('SET_EDITING_ANNOTATION', annotation);
   const setConfirmingNewImage = (image: string | null) => dispatchAction('SET_CONFIRMING_NEW_IMAGE', image);
@@ -495,7 +493,7 @@ export function useMagicMarkup() {
       });
 
       if (result.editedImage) {
-        setGeneratedImage(result.editedImage);
+        startNewSession(result.editedImage);
       } else {
         throw new Error('The AI model did not return an image.');
       }
@@ -510,34 +508,29 @@ export function useMagicMarkup() {
       dispatchAction('SET_IS_LOADING', false);
     }
   };
-
-  const handleKeepEditing = () => {
-    if (!generatedImage) return;
-    startNewSession(generatedImage);
-    setGeneratedImage(null);
-  };
   
-  const handleCopy = async () => {
-    if (!generatedImage) return;
+  const copyImageToClipboard = async (imageUrl: string) => {
     try {
-      const blob = await dataUrlToBlob(generatedImage);
+      const blob = await dataUrlToBlob(imageUrl);
       await navigator.clipboard.write([
         new ClipboardItem({ [blob.type]: blob })
       ]);
-      toast({ title: 'Copied to clipboard!' });
+      toast({ title: 'Image copied to clipboard!' });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Copy failed', description: 'Could not copy image to clipboard.' });
     }
   };
 
-  const handleDownload = () => {
-    if (!generatedImage) return;
-    const link = document.createElement('a');
-    link.href = generatedImage;
-    link.download = 'magic-markup-output.png';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleCopyBaseImage = () => {
+    if (!baseImage) return;
+    copyImageToClipboard(baseImage);
+  }
+
+  const handleCopyHistoryItem = (id: string) => {
+    const item = sessionHistory.find(item => item.id === id);
+    if (item) {
+        copyImageToClipboard(item.baseImage);
+    }
   };
   
   const handleRemoveElementImage = (index: number) => {
@@ -724,7 +717,6 @@ export function useMagicMarkup() {
     brushSize,
     customPrompt,
     isLoading,
-    generatedImage,
     isElementUploadOpen,
     editingAnnotation,
     confirmingNewImage,
@@ -743,7 +735,6 @@ export function useMagicMarkup() {
     setColor,
     setBrushSize,
     setCustomPrompt,
-    setGeneratedImage,
     setIsElementUploadOpen,
     setEditingAnnotation,
     setConfirmingNewImage,
@@ -766,9 +757,8 @@ export function useMagicMarkup() {
     handleCanvasMouseUp,
     handleSaveAnnotation,
     handleGenerate,
-    handleKeepEditing,
-    handleCopy,
-    handleDownload,
+    handleCopyBaseImage,
+    handleCopyHistoryItem,
     handleRemoveElementImage,
     handleDeleteHistoryItem,
     handleNewSession,
