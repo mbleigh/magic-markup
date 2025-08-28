@@ -27,8 +27,14 @@ export function TextAnnotator({
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const x = (annotation.position.x / canvas.width) * rect.width + rect.left;
-    const y = (annotation.position.y / canvas.height) * rect.height + rect.top;
+    
+    // The canvas is centered with "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+    // So its parent's top-left is the reference.
+    const parentRect = canvas.parentElement!.getBoundingClientRect();
+
+    const x = parentRect.left + (rect.width / 2) + (annotation.position.x - (canvas.width / 2)) * (rect.width / canvas.width);
+    const y = parentRect.top + (rect.height / 2) + (annotation.position.y - (canvas.height / 2)) * (rect.height / canvas.height);
+    
     return { x, y };
   }
 
@@ -83,8 +89,11 @@ export function TextAnnotator({
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const x = (uiPosition.x - rect.left) * (canvas.width / rect.width);
-    const y = (uiPosition.y - rect.top) * (canvas.height / rect.height);
+    const parentRect = canvas.parentElement!.getBoundingClientRect();
+
+    const x = ((uiPosition.x - parentRect.left - (rect.width/2)) * (canvas.width / rect.width)) + (canvas.width / 2);
+    const y = ((uiPosition.y - parentRect.top - (rect.height/2)) * (canvas.height / rect.height)) + (canvas.height / 2);
+    
     return { x, y };
   }
 
@@ -128,11 +137,12 @@ export function TextAnnotator({
       onClick={(e) => e.stopPropagation()} // Prevent click from propagating to canvas
     >
       <Textarea
+        autoFocus
         ref={textareaRef}
         value={text}
         onChange={handleTextChange}
         onKeyDown={handleKeyDown}
-        placeholder="Add annotation..."
+        placeholder="Type annotation..."
         className="font-marker font-bold resize-none"
         style={{
           color: annotation.color,
