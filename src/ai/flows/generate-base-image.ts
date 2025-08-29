@@ -40,9 +40,9 @@ const generateBaseImageFlow = ai.defineFlow(
     if (!context?.apiKey) throw new Error("Must supply an API key.");
 
     const { media } = await ai.generate({
-        model: 'googleai/imagen-4.0-fast-generate-001',
+        model: 'googleai/gemini-2.5-flash-image-preview',
+        config: {responseModalities: ['TEXT', 'IMAGE'], apiKey: context.apiKey},
         prompt: input.prompt,
-        config: { apiKey: context.apiKey }
     });
 
     if (!media?.url) {
