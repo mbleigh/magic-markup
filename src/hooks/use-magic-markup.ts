@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { type Tool, type BrushSize, type CanvasObject, type Annotation, type Highlight, type SessionHistoryItem } from '@/lib/types';
 import { resizeImage, dataUrlToBlob } from '@/lib/canvas-utils';
 import { generateImageEdit } from '@/ai/flows/generate-image-edit';
+import { generateBaseImage } from '@/ai/flows/generate-base-image';
 import { reducer, initialState, Action, ActionPayloads } from '@/lib/state';
 
 
@@ -31,6 +32,7 @@ export function useMagicMarkup() {
     activeHistoryId,
     apiKey,
     baseImage,
+    baseImagePrompt,
     elementImages,
     elementImageUrls,
     elementNames,
@@ -73,6 +75,7 @@ export function useMagicMarkup() {
   const setColor = (color: string) => dispatchAction('SET_COLOR', color);
   const setBrushSize = (brushSize: BrushSize) => dispatchAction('SET_BRUSH_SIZE', brushSize);
   const setCustomPrompt = (prompt: string) => dispatchAction('SET_CUSTOM_PROMPT', prompt);
+  const setBaseImagePrompt = (prompt: string) => dispatchAction('SET_BASE_IMAGE_PROMPT', prompt);
   const setIsElementUploadOpen = (isOpen: boolean) => dispatchAction('SET_IS_ELEMENT_UPLOAD_OPEN', isOpen);
   const setEditingAnnotation = (annotation: Annotation | null) => dispatchAction('SET_EDITING_ANNOTATION', annotation);
   const setConfirmingNewImage = (image: string | null) => dispatchAction('SET_CONFIRMING_NEW_IMAGE', image);
@@ -410,6 +413,30 @@ export function useMagicMarkup() {
     interactionState.current.isDragging = false;
   };
 
+  const handleGenerateBaseImage = async () => {
+    if (!apiKey) {
+      setIsApiKeyDialogOpen(true);
+      return;
+    }
+    if (!baseImagePrompt) return;
+
+    dispatchAction('SET_IS_LOADING', true);
+    try {
+      const result = await generateBaseImage(apiKey, { prompt: baseImagePrompt });
+      const resizedUrl = await resizeImage(result.generatedImage, MAX_DIMENSION, MAX_DIMENSION);
+      startNewSession(resizedUrl);
+    } catch (error: any) {
+      console.error('AI Generation Error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Generation Failed',
+        description: error.message || 'The AI could not generate the image. Please try again.',
+      });
+    } finally {
+      dispatchAction('SET_IS_LOADING', false);
+    }
+  }
+
   const handleGenerate = async () => {
     if (!apiKey) {
       setIsApiKeyDialogOpen(true);
@@ -711,6 +738,7 @@ export function useMagicMarkup() {
     activeHistoryId,
     apiKey,
     baseImage,
+    baseImagePrompt,
     elementImageUrls,
     canvasObjects,
     tool,
@@ -736,6 +764,7 @@ export function useMagicMarkup() {
     setColor,
     setBrushSize,
     setCustomPrompt,
+    setBaseImagePrompt,
     setIsElementUploadOpen,
     setEditingAnnotation,
     setConfirmingNewImage,
@@ -758,6 +787,7 @@ export function useMagicMarkup() {
     handleCanvasMouseUp,
     handleSaveAnnotation,
     handleGenerate,
+    handleGenerateBaseImage,
     handleCopyBaseImage,
     handleCopyHistoryItem,
     handleRemoveElementImage,

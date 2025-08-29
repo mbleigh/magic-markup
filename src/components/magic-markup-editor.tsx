@@ -1,7 +1,7 @@
 
 'use client';
 
-import { UploadCloud } from 'lucide-react';
+import { UploadCloud, Sparkles, Loader2 } from 'lucide-react';
 import { useMagicMarkup } from '@/hooks/use-magic-markup';
 import { Button } from '@/components/ui/button';
 import { Header } from './header';
@@ -10,6 +10,8 @@ import { EditorCanvas } from './editor-canvas';
 import { Toolbar } from './toolbar';
 import { ConfirmNewImageDialog } from './confirm-new-image-dialog';
 import { ApiKeyDialog } from './api-key-dialog';
+import { Input } from './ui/input';
+import { Separator } from './ui/separator';
 
 export function MagicMarkupEditor() {
   const hook = useMagicMarkup();
@@ -52,7 +54,7 @@ export function MagicMarkupEditor() {
             />
           ) : (
             <div className="flex w-full h-full max-w-2xl max-h-[70vh] items-center justify-center rounded-2xl border-2 border-dashed border-border">
-              <div className="text-center">
+              <div className="text-center p-8 w-full max-w-lg">
                 <UploadCloud className="mx-auto size-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium">Upload or Paste Base Image</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Start by uploading or pasting the image you want to edit.</p>
@@ -66,6 +68,28 @@ export function MagicMarkupEditor() {
                   ref={hook.fileInputRef}
                   onChange={hook.handleBaseImageUpload}
                 />
+                <div className="my-8 flex items-center">
+                  <Separator className="flex-1" />
+                  <span className="mx-4 text-sm text-muted-foreground">OR</span>
+                  <Separator className="flex-1" />
+                </div>
+                <h3 className="text-lg font-medium">Generate with AI</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Describe the image you want to create.</p>
+                <div className="mt-4 flex gap-2">
+                  <Input 
+                    placeholder="e.g., a photorealistic cat astronaut"
+                    value={hook.baseImagePrompt}
+                    onChange={(e) => hook.setBaseImagePrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        hook.handleGenerateBaseImage();
+                      }
+                    }}
+                  />
+                  <Button onClick={hook.handleGenerateBaseImage} disabled={hook.isLoading || !hook.baseImagePrompt}>
+                    {hook.isLoading ? <Loader2 className="animate-spin"/> : <Sparkles />}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
