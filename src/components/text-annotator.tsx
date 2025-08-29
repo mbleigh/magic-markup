@@ -51,12 +51,13 @@ export function TextAnnotator({
   }, [annotation.position.x, annotation.position.y, canvasRef.current]);
 
   useEffect(() => {
-    if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    const ta = textareaRef.current;
+    if (ta) {
+        // Auto-resize on initial render and when text changes.
+        ta.style.height = 'auto';
+        ta.style.height = `${ta.scrollHeight}px`;
     }
-  }, [annotation.id]);
+  }, [text, annotation.id]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only drag when clicking the div itself, not the textarea or buttons
@@ -123,8 +124,6 @@ export function TextAnnotator({
   
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${e.target.scrollHeight}px`;
   }
 
   return (
