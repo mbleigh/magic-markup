@@ -7,12 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Header } from './header';
 import { HistorySidebar } from './history-sidebar';
 import { EditorCanvas } from './editor-canvas';
-import { Toolbar } from './toolbar';
 import { ConfirmNewImageDialog } from './confirm-new-image-dialog';
 import { ApiKeyDialog } from './api-key-dialog';
 import { Input } from './ui/input';
 import { Separator } from './ui/separator';
-import { GeneratedImageDialog } from './generated-image-dialog';
 import { TextAnnotator } from './text-annotator';
 
 export function MagicMarkupEditor() {
@@ -29,7 +27,7 @@ export function MagicMarkupEditor() {
         onCopyClick={hook.handleCopyBaseImage}
         isCopyDisabled={!hook.baseImage}
       />
-      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[auto_1fr_350px]">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[auto_1fr_350px] min-h-0">
         <HistorySidebar
           isCameraRollOpen={hook.isCameraRollOpen}
           setIsCameraRollOpen={hook.setIsCameraRollOpen}
