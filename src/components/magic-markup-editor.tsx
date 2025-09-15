@@ -12,6 +12,8 @@ import { ConfirmNewImageDialog } from './confirm-new-image-dialog';
 import { ApiKeyDialog } from './api-key-dialog';
 import { Input } from './ui/input';
 import { Separator } from './ui/separator';
+import { GeneratedImageDialog } from './generated-image-dialog';
+import { TextAnnotator } from './text-annotator';
 
 export function MagicMarkupEditor() {
   const hook = useMagicMarkup();
@@ -27,7 +29,7 @@ export function MagicMarkupEditor() {
         onCopyClick={hook.handleCopyBaseImage}
         isCopyDisabled={!hook.baseImage}
       />
-      <div className="grid flex-1 grid-cols-1 md:grid-cols-[auto_1fr_350px]">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[auto_1fr_350px]">
         <HistorySidebar
           isCameraRollOpen={hook.isCameraRollOpen}
           setIsCameraRollOpen={hook.setIsCameraRollOpen}
@@ -109,6 +111,15 @@ export function MagicMarkupEditor() {
           onSave={hook.handleSaveApiKey}
           existingApiKey={hook.apiKey}
         />
+
+        {hook.editingAnnotation && (
+          <TextAnnotator
+            annotation={hook.editingAnnotation}
+            onSave={hook.handleSaveAnnotation}
+            onCancel={() => hook.setEditingAnnotation(null)}
+            canvasRef={hook.canvasRef}
+          />
+        )}
 
       </div>
     </div>
